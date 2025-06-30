@@ -1,6 +1,17 @@
 <?php
-require_once __DIR__ . '/config/db_config.php';
-require_once __DIR__ . '/MoodleDBConnection.php';
+// Enable error reporting for debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+// Load configuration
+$configFile = __DIR__ . '/config/db_config.php';
+
+if (!file_exists($configFile)) {
+    die("Error: Database configuration file not found at: " . $configFile);
+}
+
+// Load the configuration
+$config = require $configFile;
 
 // Initialize variables
 $error = null;
@@ -12,11 +23,8 @@ $stats = [
 ];
 
 try {
-    // Debug: Display database configuration (remove this in production)
-    error_log("Attempting to connect to database:");
-    error_log("Host: " . $config['host']);
-    error_log("Database: " . $config['dbname']);
-    error_log("Username: " . $config['username']);
+    // Include the database connection class
+    require_once __DIR__ . '/MoodleDBConnection.php';
     
     // Initialize database connection using config file
     $db = new MoodleDBConnection(
@@ -25,17 +33,38 @@ try {
         $config['username'],
         $config['password']
     );
+    
+    // Get the PDO connection
     $pdo = $db->connect();
     
-    // Test the connection with a simple query
-    $serverVersion = $pdo->getAttribute(PDO::ATTR_SERVER_VERSION);
-    error_log("Connected to MySQL server version: " . $serverVersion);
+    // Get basic statistics with error handling for each query
+    try {
+        $stats['total_users'] = $pdo->query("SELECT COUNT(*) FROM mdl_user WHERE deleted = 0 AND id > 1")->fetchColumn();
+    } catch (PDOException $e) {
+        error_log("Error fetching total users: " . $e->getMessage());
+        $stats['total_users'] = 'N/A';
+    }
     
-    // Get basic statistics
-    $stats['total_users'] = $pdo->query("SELECT COUNT(*) FROM mdl_user WHERE deleted = 0 AND id > 1")->fetchColumn();
-    $stats['total_courses'] = $pdo->query("SELECT COUNT(*) FROM mdl_course WHERE id > 1")->fetchColumn();
-    $stats['active_users'] = $pdo->query("SELECT COUNT(DISTINCT userid) FROM mdl_user_lastaccess WHERE timeaccess > UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 30 DAY))")->fetchColumn();
-    $stats['total_enrollments'] = $pdo->query("SELECT COUNT(*) FROM mdl_user_enrolments")->fetchColumn();
+    try {
+        $stats['total_courses'] = $pdo->query("SELECT COUNT(*) FROM mdl_course WHERE id > 1")->fetchColumn();
+    } catch (PDOException $e) {
+        error_log("Error fetching total courses: " . $e->getMessage());
+        $stats['total_courses'] = 'N/A';
+    }
+    
+    try {
+        $stats['active_users'] = $pdo->query("SELECT COUNT(DISTINCT userid) FROM mdl_user_lastaccess WHERE timeaccess > UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 30 DAY))")->fetchColumn();
+    } catch (PDOException $e) {
+        error_log("Error fetching active users: " . $e->getMessage());
+        $stats['active_users'] = 'N/A';
+    }
+    
+    try {
+        $stats['total_enrollments'] = $pdo->query("SELECT COUNT(*) FROM mdl_user_enrolments")->fetchColumn();
+    } catch (PDOException $e) {
+        error_log("Error fetching total enrollments: " . $e->getMessage());
+        $stats['total_enrollments'] = 'N/A';
+    }
     
 } catch (PDOException $e) {
     $error = "Database error: " . $e->getMessage();
