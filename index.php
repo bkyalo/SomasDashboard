@@ -13,6 +13,10 @@ if (!file_exists($configFile)) {
 // Load the configuration
 $config = require $configFile;
 
+// Page title and active nav item
+$pageTitle = 'Dashboard';
+$activeNav = 'dashboard';
+
 // Initialize variables
 $error = null;
 $stats = [
@@ -38,32 +42,20 @@ try {
     $pdo = $db->connect();
     
     // Get basic statistics with error handling for each query
-    try {
-        $stats['total_users'] = $pdo->query("SELECT COUNT(*) FROM mdl_user WHERE deleted = 0 AND id > 1")->fetchColumn();
-    } catch (PDOException $e) {
-        error_log("Error fetching total users: " . $e->getMessage());
-        $stats['total_users'] = 'N/A';
-    }
+    $queries = [
+        'total_users' => "SELECT COUNT(*) FROM mdl_user WHERE deleted = 0 AND id > 1",
+        'total_courses' => "SELECT COUNT(*) FROM mdl_course WHERE id > 1",
+        'active_users' => "SELECT COUNT(DISTINCT userid) FROM mdl_user_lastaccess WHERE timeaccess > UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 30 DAY))",
+        'total_enrollments' => "SELECT COUNT(*) FROM mdl_user_enrolments"
+    ];
     
-    try {
-        $stats['total_courses'] = $pdo->query("SELECT COUNT(*) FROM mdl_course WHERE id > 1")->fetchColumn();
-    } catch (PDOException $e) {
-        error_log("Error fetching total courses: " . $e->getMessage());
-        $stats['total_courses'] = 'N/A';
-    }
-    
-    try {
-        $stats['active_users'] = $pdo->query("SELECT COUNT(DISTINCT userid) FROM mdl_user_lastaccess WHERE timeaccess > UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 30 DAY))")->fetchColumn();
-    } catch (PDOException $e) {
-        error_log("Error fetching active users: " . $e->getMessage());
-        $stats['active_users'] = 'N/A';
-    }
-    
-    try {
-        $stats['total_enrollments'] = $pdo->query("SELECT COUNT(*) FROM mdl_user_enrolments")->fetchColumn();
-    } catch (PDOException $e) {
-        error_log("Error fetching total enrollments: " . $e->getMessage());
-        $stats['total_enrollments'] = 'N/A';
+    foreach ($queries as $key => $query) {
+        try {
+            $stats[$key] = $pdo->query($query)->fetchColumn();
+        } catch (PDOException $e) {
+            error_log("Error fetching $key: " . $e->getMessage());
+            $stats[$key] = 'N/A';
+        }
     }
     
 } catch (PDOException $e) {
@@ -71,20 +63,130 @@ try {
 }
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Moodle Dashboard</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <title><?= htmlspecialchars($pageTitle) ?> - Somas Dashboard</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    
+    <!-- Custom CSS -->
     <style>
-        .stat-card {
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        :root {
+            --sidebar-width: 250px;
+            --topbar-height: 56px;
         }
+        
+        body {
+            font-size: 0.9rem;
+            background-color: #f8f9fa;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            width: var(--sidebar-width);
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            background: #2c3e50;
+            color: #fff;
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+        
+        .sidebar-brand {
+            height: var(--topbar-height);
+            display: flex;
+            align-items: center;
+            padding: 0 1rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #fff;
+            text-decoration: none;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .sidebar .nav-link {
+            color: #b8c7ce;
+            padding: 0.65rem 1rem;
+            margin: 0.1rem 0.5rem;
+            border-radius: 0.25rem;
+            transition: all 0.2s;
+        }
+        
+        .sidebar .nav-link:hover,
+        .sidebar .nav-link.active {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+        }
+        
+        .sidebar .nav-link i {
+            width: 1.5rem;
+            text-align: center;
+            margin-right: 0.5rem;
+        }
+        
+        /* Main Content */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            padding: 1.5rem;
+            min-height: 100vh;
+            transition: all 0.3s;
+        }
+        
+        /* Topbar */
+        .topbar {
+            height: var(--topbar-height);
+            background: #fff;
+            box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            padding: 0 1.5rem;
+        }
+        
+        /* Cards */
+        .stat-card {
+            border: none;
+            border-radius: 0.5rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+            height: 100%;
+        }
+        
         .stat-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            transform: translateY(-3px);
+            box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.1) !important;
+        }
+        
+        .stat-icon {
+            width: 3rem;
+            height: 3rem;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                left: calc(-1 * var(--sidebar-width));
+            }
+            
+            .sidebar.active {
+                left: 0;
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
         }
     </style>
 </head>
