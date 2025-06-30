@@ -39,13 +39,39 @@ class MoodleDBConnection {
                     PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
                     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                     PDO::ATTR_EMULATE_PREPARES   => false,
+                    PDO::ATTR_TIMEOUT            => 5, // 5 second connection timeout
                 ];
 
+                error_log("Attempting to connect to: " . $dsn);
                 $this->connection = new PDO($dsn, $this->username, $this->password, $options);
+                error_log("Successfully connected to database");
+                
             } catch (PDOException $e) {
-                // Log the error instead of exposing it to the user
-                error_log("Connection failed: " . $e->getMessage());
-                throw new PDOException("Could not connect to the database. Please try again later.");
+                $errorMsg = sprintf(
+                    "Database connection failed: %s (Error Code: %s)",
+                    $e->getMessage(),
+                    $e->getCode()
+                );
+                error_log($errorMsg);
+                
+                // More specific error messages based on error code
+                switch ($e->getCode()) {
+                    case 2002:
+                        $errorMsg = "Could not connect to the database server. Please check if the database server is running.";
+                        break;
+                    case 1044:
+                    case 1045:
+                        $errorMsg = "Access denied for user '{$this->username}'. Please check your database credentials.";
+                        break;
+                    case 1049:
+                        $errorMsg = "Database '{$this->dbname}' does not exist. Please check the database name.";
+                        break;
+                    case 2006:
+                        $errorMsg = "Database server has gone away. Please try again later.";
+                        break;
+                }
+                
+                throw new PDOException($errorMsg, (int)$e->getCode());
             }
         }
         return $this->connection;

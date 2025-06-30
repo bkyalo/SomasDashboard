@@ -12,7 +12,13 @@ $stats = [
 ];
 
 try {
-    // Initialize database connection
+    // Debug: Display database configuration (remove this in production)
+    error_log("Attempting to connect to database:");
+    error_log("Host: " . $config['host']);
+    error_log("Database: " . $config['dbname']);
+    error_log("Username: " . $config['username']);
+    
+    // Initialize database connection using config file
     $db = new MoodleDBConnection(
         $config['host'],
         $config['dbname'],
@@ -20,6 +26,10 @@ try {
         $config['password']
     );
     $pdo = $db->connect();
+    
+    // Test the connection with a simple query
+    $serverVersion = $pdo->getAttribute(PDO::ATTR_SERVER_VERSION);
+    error_log("Connected to MySQL server version: " . $serverVersion);
     
     // Get basic statistics
     $stats['total_users'] = $pdo->query("SELECT COUNT(*) FROM mdl_user WHERE deleted = 0 AND id > 1")->fetchColumn();
