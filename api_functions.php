@@ -44,10 +44,23 @@ function call_moodle_api($functionname, $params = []) {
     
     // Initialize cURL
     $ch = curl_init();
+    if ($ch === false) {
+        $error = 'Failed to initialize cURL';
+        error_log($error);
+        return ['error' => $error];
+    }
+    
     curl_setopt($ch, CURLOPT_URL, MOODLE_API_URL);
     curl_setopt($ch, CURLOPT_POST, 1);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $query_string);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // Disable SSL verification (for testing only)
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0); // Disable host verification (for testing only)
+    curl_setopt($ch, CURLOPT_TIMEOUT, 30); // 30 seconds timeout
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10); // 10 seconds connection timeout
+    
+    // Log the full request for debugging
+    error_log("cURL options set. Making request...");
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // Disable SSL verification for now
     curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
     curl_setopt($ch, CURLOPT_TIMEOUT, 30);
@@ -59,60 +72,87 @@ function call_moodle_api($functionname, $params = []) {
     // Execute the request
     $response = curl_exec($ch);
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $error = curl_error($ch);
-    $errno = curl_errno($ch);
+    $curl_error = curl_error($ch);
+    $curl_errno = curl_errno($ch);
     
-    // Log the response
-    error_log("\n=== Moodle API Response ===");
-    error_log("Status: $http_code");
-    error_log("Response: " . substr($response, 0, 2000));
+    // Log response details
+    error_log("cURL HTTP Code: " . $http_code);
+    error_log("cURL Error Number: " . $curl_errno);
+    error_log("cURL Error: " . $curl_error);
     
     // Check for cURL errors
-    if ($errno) {
-        $error_message = "cURL Error ($errno): $error";
-        error_log("ERROR: $error_message");
-        curl_close($ch);
-        return ['error' => $error_message];
-    }
-    
-    curl_close($ch);
-    
-    // Check for empty response
-    if (empty($response)) {
-        $error_message = "Empty response from Moodle API";
-        error_log("ERROR: $error_message");
-        return ['error' => $error_message];
-    }
-    
-    // Parse the JSON response
-    $result = json_decode($response, true);
-    
-    // Check for JSON parsing errors
-    if (json_last_error() !== JSON_ERROR_NONE) {
-        $error_message = 'JSON Parse Error: ' . json_last_error_msg() . ' - Response: ' . substr($response, 0, 500);
-        error_log("ERROR: $error_message");
-        return ['error' => $error_message];
-    }
-    
-    // Check for Moodle exceptions or errors
-    if (isset($result['exception'])) {
-        $error_message = "Moodle Exception: " . ($result['message'] ?? 'Unknown error');
-        error_log("ERROR: $error_message");
-        if (isset($result['debuginfo'])) {
-            error_log("Debug Info: " . $result['debuginfo']);
+    if ($curl_errno) {
+        $error_msg = "cURL Error #$curl_errno: $curl_error";
+        error_log($error_msg);
+        
+        // Log additional cURL info if available
+        $curl_info = curl_getinfo($ch);
+        error_log("cURL Info: " . print_r($curl_info, true));
+        
+        if (isset($curl_info['ssl_verify_result']) && $curl_info['ssl_verify_result'] !== 0) {
+            error_log("SSL Verification failed with code: " . $curl_info['ssl_verify_result']);
         }
-        return ['error' => $error_message];
+        
+        @curl_close($ch);
+        return ['error' => $error_msg];
+    }
+    
+    // Log the raw response (first 1000 chars to avoid huge logs)
+    $response_log = is_string($response) ? substr($response, 0, 1000) : gettype($response);
+    error_log("API Response (truncated): " . $response_log);
+    
+    // Close cURL resource
+    @curl_close($ch);
+    
+    // Check if we got a valid response
+    if ($response === false) {
+        $error_msg = 'Empty response from server';
+        error_log($error_msg);
+        return ['error' => $error_msg];
+    }
+    
+    // Handle non-200 HTTP status codes
+    if ($http_code < 200 || $http_code >= 300) {
+        $error_msg = "HTTP Error: $http_code";
+        error_log($error_msg);
+        return ['error' => $error_msg, 'http_code' => $http_code];
+    }
+    
+    // Decode the JSON response
+    $decoded_response = json_decode($response, true);
+    
+    // Check for JSON decode errors
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        $error_msg = 'JSON decode error: ' . json_last_error_msg() . ' (Code: ' . json_last_error() . ')';
+        error_log($error_msg);
+        error_log("Response that caused JSON error: " . $response);
+        return ['error' => $error_msg, 'raw_response' => $response];
+    }
+    
+    // Log if we got an error from the Moodle API
+    if (isset($decoded_response['exception'])) {
+        $error_message = "Moodle Exception: " . ($decoded_response['message'] ?? 'Unknown error');
+        $debug_info = $decoded_response['debuginfo'] ?? 'No debug info';
+        
+        error_log("Moodle API Exception: $error_message");
+        error_log("Debug Info: $debug_info");
+        
+        return [
+            'error' => $error_message,
+            'debuginfo' => $debug_info,
+            'exception' => true
+        ];
     }
     
     // Check for error message in the response
-    if (isset($result['error'])) {
-        $error_message = "Moodle Error: " . $result['error'];
+    if (isset($decoded_response['error'])) {
+        $error_message = "Moodle Error: " . $decoded_response['error'];
         error_log("ERROR: $error_message");
         return ['error' => $error_message];
     }
     
     error_log("API Call Successful");
-    return $result;
+    return $decoded_response;
 }
 
 /**
@@ -124,35 +164,87 @@ function get_top_enrolled_courses($limit = 5) {
     try {
         error_log("Getting top $limit enrolled courses...");
         
-        // First, get all categories in one go
-        $categories_result = call_moodle_api('core_course_get_categories', []);
+        // Initialize categories array
         $categories = [];
-        if (!empty($categories_result) && !isset($categories_result['error'])) {
-            foreach ($categories_result as $category) {
-                if (isset($category['id']) && isset($category['name'])) {
-                    $categories[$category['id']] = $category['name'];
+        
+        try {
+            // First, try to get categories using core_course_get_categories
+            error_log("Fetching course categories...");
+            $categories_result = call_moodle_api('core_course_get_categories', [
+                'criteria' => [
+                    ['key' => 'parent', 'value' => 0] // Get top-level categories
+                ]
+            ]);
+            
+            // Log the raw categories response for debugging
+            error_log("Categories API response: " . print_r($categories_result, true));
+            
+            if (!empty($categories_result) && !isset($categories_result['error'])) {
+                if (isset($categories_result['exception'])) {
+                    error_log("Exception in categories API: " . $categories_result['message']);
+                } else {
+                    foreach ($categories_result as $category) {
+                        if (isset($category['id']) && isset($category['name'])) {
+                            $categories[$category['id']] = $category['name'];
+                        }
+                    }
                 }
             }
+            
+            // If no categories found, try alternative method
+            if (empty($categories)) {
+                error_log("No categories found with core_course_get_categories, trying alternative method...");
+                $all_courses = call_moodle_api('core_course_get_courses', []);
+                
+                if (is_array($all_courses)) {
+                    foreach ($all_courses as $course) {
+                        if (isset($course['category']) && $course['category'] > 0) {
+                            // Try to get category name directly from course data if available
+                            if (isset($course['categoryname'])) {
+                                $categories[$course['category']] = $course['categoryname'];
+                            }
+                        }
+                    }
+                }
+            }
+            
+            error_log("Fetched " . count($categories) . " course categories");
+            
+        } catch (Exception $e) {
+            error_log("Error fetching categories: " . $e->getMessage());
+            // Continue without categories rather than failing the entire request
         }
         
         // Get all courses with their enrollment counts
+        error_log("Fetching all courses...");
         $courses = call_moodle_api('core_course_get_courses', [
             'options' => [
                 'ids' => [] // Empty array means get all courses
             ]
         ]);
         
-        error_log("Found " . count($courses) . " courses");
+        // Log the raw courses response for debugging
+        error_log("Courses API response: " . print_r($courses, true));
         
         if (empty($courses)) {
-            error_log("No courses returned from API");
-            return [];
+            $error_msg = "No courses returned from API";
+            error_log($error_msg);
+            return ['error' => $error_msg];
         }
         
         if (isset($courses['error'])) {
-            error_log("Error getting courses: " . $courses['error']);
-            return ['error' => $courses['error']];
+            $error_msg = "Error getting courses: " . $courses['error'];
+            error_log($error_msg);
+            return ['error' => $error_msg];
         }
+        
+        if (isset($courses['exception'])) {
+            $error_msg = "Exception in courses API: " . ($courses['message'] ?? 'Unknown error');
+            error_log($error_msg);
+            return ['error' => $error_msg];
+        }
+        
+        error_log("Successfully retrieved " . count($courses) . " courses");
         
         // Process the courses
         $result = [];
@@ -164,15 +256,43 @@ function get_top_enrolled_courses($limit = 5) {
             
             try {
                 // Get enrollment count for this course
+                error_log("Fetching enrolled users for course ID: " . $course['id']);
                 $enrolled_users = call_moodle_api('core_enrol_get_enrolled_users', [
                     'courseid' => $course['id']
                 ]);
                 
-                $enrolled_count = is_array($enrolled_users) ? count($enrolled_users) : 0;
+                // Log the enrolled users response for debugging
+                error_log("Enrolled users response for course " . $course['id'] . ": " . print_r($enrolled_users, true));
                 
-                // Get category name from pre-fetched categories
+                // Handle potential errors in the enrolled users response
+                if (isset($enrolled_users['error'])) {
+                    error_log("Error fetching enrolled users for course " . $course['id'] . ": " . $enrolled_users['error']);
+                    $enrolled_count = 0;
+                } else if (isset($enrolled_users['exception'])) {
+                    error_log("Exception fetching enrolled users for course " . $course['id'] . ": " . ($enrolled_users['message'] ?? 'Unknown error'));
+                    $enrolled_count = 0;
+                } else if (!is_array($enrolled_users)) {
+                    error_log("Unexpected response format for enrolled users in course " . $course['id']);
+                    $enrolled_count = 0;
+                } else {
+                    $enrolled_count = count($enrolled_users);
+                    error_log("Found $enrolled_count enrolled users for course " . $course['id']);
+                }
+                
+                // Get category information
                 $category_id = $course['category'] ?? 0;
-                $category_name = $categories[$category_id] ?? 'Uncategorized';
+                $category_name = 'Uncategorized';
+                
+                // Try to get category from the fetched categories
+                if ($category_id > 0 && !empty($categories[$category_id])) {
+                    $category_name = $categories[$category_id]['name'];
+                } 
+                // If not found, try to get it from the course data directly
+                // If not found, try to get it from the course data
+                else if (isset($course['categoryname'])) {
+                    $category_name = $course['categoryname'];
+                    $category_id = $course['category'] ?? $category_id;
+                }
                 
                 $result[] = [
                     'id' => $course['id'],
@@ -391,13 +511,33 @@ function get_all_courses_with_enrollments() {
             return [];
         }
         
-        // Get all categories
+        // Get all categories with more detailed information
         $categories = [];
-        $categories_result = call_moodle_api('core_course_get_categories', []);
-        if (!empty($categories_result) && !isset($categories_result['error'])) {
-            foreach ($categories_result as $category) {
-                $categories[$category['id']] = $category['name'];
+        try {
+            $categories_result = call_moodle_api('core_course_get_categories', [
+                'addsubcategories' => 1,
+                'criteria' => [
+                    ['key' => 'ids', 'value' => ''] // Get all categories
+                ]
+            ]);
+            
+            if (!empty($categories_result) && !isset($categories_result['error'])) {
+                foreach ($categories_result as $category) {
+                    if (isset($category['id'])) {
+                        $categories[$category['id']] = [
+                            'name' => $category['name'] ?? 'Uncategorized',
+                            'idnumber' => $category['idnumber'] ?? '',
+                            'parent' => $category['parent'] ?? 0
+                        ];
+                    }
+                }
+                error_log("Fetched " . count($categories) . " course categories");
+            } else {
+                error_log("No categories found or error in response");
             }
+        } catch (Exception $e) {
+            error_log("Error fetching categories: " . $e->getMessage());
+            // Continue with empty categories
         }
         
         $result = [];
@@ -438,12 +578,46 @@ function get_all_courses_with_enrollments() {
                 }
             }
             
-            // Safely get category information with null checks
+            // Handle category information with multiple fallbacks
             $categoryId = $course['category'] ?? 0;
             $categoryName = 'Uncategorized';
             
-            if ($categoryId > 0 && isset($categories[$categoryId])) {
-                $categoryName = $categories[$categoryId];
+            // Try to get category from the fetched categories
+            if ($categoryId > 0 && !empty($categories[$categoryId])) {
+                if (is_array($categories[$categoryId])) {
+                    $categoryName = $categories[$categoryId]['name'] ?? 'Uncategorized';
+                } else {
+                    $categoryName = $categories[$categoryId];
+                }
+            } 
+            // Fallback to course's categoryname if available
+            else if (!empty($course['categoryname'])) {
+                $categoryName = $course['categoryname'];
+            }
+            // Fallback to course's displayname format (some Moodle versions use 'Category: Course Name')
+            else if (!empty($course['displayname'])) {
+                $parts = explode(':', $course['displayname'], 2);
+                if (count($parts) > 1) {
+                    $categoryName = trim($parts[0]);
+                }
+            }
+            
+            // If still uncategorized, try to get parent category if available
+            if ($categoryName === 'Uncategorized' && $categoryId > 0 && !empty($course['category'])) {
+                // Try to get parent category info
+                try {
+                    $category_info = call_moodle_api('core_course_get_categories', [
+                        'criteria' => [
+                            ['key' => 'ids', 'value' => $categoryId]
+                        ]
+                    ]);
+                    
+                    if (!empty($category_info[0]['name'])) {
+                        $categoryName = $category_info[0]['name'];
+                    }
+                } catch (Exception $e) {
+                    error_log("Error fetching category info for ID {$categoryId}: " . $e->getMessage());
+                }
             }
             
             // Add course to result

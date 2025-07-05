@@ -136,15 +136,25 @@ function loadDashboardData() {
         .then(response => {
             console.log('API response status:', response.status);
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                console.error('Response not OK, status:', response.status);
+                return response.text().then(text => {
+                    console.error('Response text:', text);
+                    throw new Error(`HTTP error! status: ${response.status}, response: ${text}`);
+                });
             }
             return response.json().catch(e => {
                 console.error('Error parsing JSON:', e);
-                throw new Error('Invalid JSON response from server');
+                return response.text().then(text => {
+                    console.error('Raw response text:', text);
+                    throw new Error('Invalid JSON response from server');
+                });
             });
         })
         .then(data => {
             console.log('API response data:', data);
+            if (!data) {
+                throw new Error('No data received from server');
+            }
             // Update the UI with the received data
             updateDashboard(data);
         })
@@ -183,13 +193,64 @@ function loadDashboardData() {
 function updateDashboard(data) {
     console.log('Updating dashboard with data:', data);
     
-    // Update stats cards
-    updateStatCard('total-users', data.total_users || 0);
-    updateStatCard('total-courses', data.total_courses || 0);
-    updateStatCard('total-categories', data.total_categories || 0);
-    updateStatCard('active-users', data.active_users || 0);
+    if (!data) {
+        console.error('No data provided to updateDashboard');
+        return;
+    }
     
-    // Update recent activity
+    // Check if data.data exists
+    if (!data.data) {
+        console.error('No data.data in response:', data);
+        showNotification('Invalid data format received from server', 'error');
+        return;
+    }
+    
+    // Log the structure of the data
+    console.log('Dashboard data structure:', {
+        hasTopCourses: !!data.data.top_courses,
+        topCoursesType: data.data.top_courses ? typeof data.data.top_courses : 'undefined',
+        isArray: Array.isArray(data.data.top_courses),
+        keys: Object.keys(data.data)
+    });
+    
+    // Update stat cards
+    try {
+        if (typeof data.data.total_users !== 'undefined') {
+            updateStatCard('total-users', data.data.total_users);
+        } else {
+            console.warn('total_users is undefined in response');
+        }
+        
+        if (typeof data.data.active_users !== 'undefined') {
+            updateStatCard('active-users', data.data.active_users);
+        } else {
+            console.warn('active_users is undefined in response');
+        }
+        
+        if (typeof data.data.total_courses !== 'undefined') {
+            updateStatCard('total-courses', data.data.total_courses);
+        } else {
+            console.warn('total_courses is undefined in response');
+        }
+        
+        if (typeof data.data.total_categories !== 'undefined') {
+            updateStatCard('total-categories', data.data.total_categories);
+        } else {
+            console.warn('total_categories is undefined in response');
+        }
+        
+        // Update top courses if available
+        if (data.data.top_courses) {
+            console.log('Updating top courses with:', data.data.top_courses);
+            updateTopCourses(data.data.top_courses);
+        } else {
+            console.warn('No top_courses in response data');
+        }
+    } catch (error) {
+        console.error('Error updating dashboard:', error);
+        showNotification(`Error updating dashboard: ${error.message}`, 'error');
+    }
+    
     if (data.recent_activity && Array.isArray(data.recent_activity)) {
         updateRecentActivity(data.recent_activity);
     }
@@ -394,68 +455,149 @@ function getNotificationIcon(type) {
  * @param {Array} courses - Array of course objects
  */
 function updateTopCourses(courses) {
+    console.log('Updating top courses with data:', courses);
+    
+    // Debug: Log all course objects to inspect their structure
+    if (courses && courses.length > 0) {
+        console.log('All course objects:');
+        courses.forEach((course, index) => {
+            console.log(`Course #${index + 1}:`, {
+                id: course.id,
+                fullname: course.fullname,
+                categoryId: course.categoryid || course.category,
+                categoryName: course.categoryname,
+                allProperties: Object.keys(course)
+            });
+        });
+    }
+    
     const container = document.querySelector('.top-courses-container');
-    if (!container) return;
+    if (!container) {
+        console.error('Top courses container not found');
+        return;
+    }
     
     // Clear existing content
     container.innerHTML = '';
     
-    if (courses.length === 0) {
+    if (!Array.isArray(courses)) {
+        console.error('Courses data is not an array:', courses);
         container.innerHTML = `
-            <div class="col-span-full text-center py-8">
-                <p class="text-gray-400">No enrolled courses found</p>
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
+                <div class="text-red-500 mb-2">
+                    <i class="fas fa-exclamation-triangle text-2xl"></i>
+                </div>
+                <p class="text-red-600 font-medium">Invalid courses data format</p>
+                <p class="text-sm text-gray-500 mt-1">Expected an array but got: ${typeof courses}</p>
             </div>
         `;
         return;
     }
     
-    // Create and append course cards
-    courses.forEach((course, index) => {
-        const courseElement = document.createElement('div');
-        courseElement.className = 'group relative bg-gray-800 rounded-xl p-5 hover:bg-gray-750 transition-all duration-300 transform hover:-translate-y-1 hover:shadow-lg hover:shadow-purple-500/10 border border-gray-700 overflow-hidden';
-        
-        // Add glow effect for top 3 courses
-        if (index < 3) {
-            const glowColors = [
-                'from-purple-500 to-pink-500',
-                'from-blue-400 to-cyan-400',
-                'from-amber-400 to-orange-500'
-            ];
-            courseElement.innerHTML += `
-                <div class="absolute -inset-0.5 bg-gradient-to-r ${glowColors[index]} rounded-xl opacity-0 group-hover:opacity-30 blur transition duration-1000 group-hover:duration-200"></div>
-            `;
-        }
-        
-        // Course content
-        courseElement.innerHTML += `
-            <div class="relative z-10">
-                <div class="flex items-center justify-between mb-3">
-                    <span class="px-2 py-1 text-xs font-medium rounded-full ${getRandomBadgeColor()}">
-                        ${course.categoryname || 'Uncategorized'}
-                    </span>
-                    <span class="text-xs text-gray-400">
-                        <i class="fas fa-users mr-1"></i> ${course.enrolledusercount || 0}
-                    </span>
+    if (courses.length === 0) {
+        console.log('No courses found to display');
+        container.innerHTML = `
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
+                <div class="text-gray-400 mb-3">
+                    <i class="fas fa-book-open text-4xl"></i>
                 </div>
-                <h3 class="font-bold text-white mb-2 line-clamp-2" title="${course.fullname || 'Unnamed Course'}">
-                    ${course.fullname || 'Unnamed Course'}
-                </h3>
-                <p class="text-sm text-gray-400 line-clamp-2 mb-4">
-                    ${course.summary || 'No description available'}
-                </p>
-                <div class="flex justify-between items-center">
-                    <span class="text-xs text-gray-500">
-                        ID: ${course.id}
-                    </span>
-                    <a href="#" class="text-purple-400 hover:text-purple-300 text-sm font-medium transition-colors">
-                        View <i class="fas fa-arrow-right ml-1"></i>
-                    </a>
-                </div>
+                <h3 class="text-lg font-medium text-gray-700">No enrolled courses found</h3>
+                <p class="text-gray-500 mt-1">There are no courses with enrolled users to display</p>
             </div>
         `;
+        return;
+    }
+    
+    // Create table container - using col-span-full to break out of the grid
+    const tableContainer = document.createElement('div');
+    tableContainer.className = 'col-span-full w-full bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden';
+    
+    // Create table
+    const table = document.createElement('table');
+    table.className = 'min-w-full divide-y divide-gray-200';
+    
+    // Create table header
+    const thead = document.createElement('thead');
+    thead.className = 'bg-gray-50';
+    thead.innerHTML = `
+        <tr>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course Name</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Students</th>
+        </tr>
+    `;
+    
+    // Create table body
+    const tbody = document.createElement('tbody');
+    tbody.className = 'bg-white divide-y divide-gray-200';
+    
+    // Add courses to table
+    courses.forEach((course, index) => {
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-gray-50 transition-colors cursor-pointer';
+        row.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                ${index + 1}
+            </td>
+            <td class="px-6 py-4">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-book text-blue-600"></i>
+                    </div>
+                    <div class="ml-4">
+                        <div class="text-sm font-medium text-gray-900">${escapeHtml(course.fullname || 'Unnamed Course')}</div>
+                        <div class="text-xs text-gray-500">${escapeHtml(course.shortname || '')}</div>
+                    </div>
+                </div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                    ${course.category ? escapeHtml(course.category.name || course.category) : 'Uncategorized'}
+                </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <span class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getEnrollmentBadgeClass(course.enrolledusercount)}">
+                    <i class="fas fa-users mr-1.5"></i>
+                    ${course.enrolledusercount || 0} enrolled
+                </span>
+            </td>
+        `;
         
-        container.appendChild(courseElement);
+        // Add click handler
+        row.addEventListener('click', () => {
+            console.log('Navigating to course:', course.id);
+            // Add navigation logic here
+        });
+        
+        tbody.appendChild(row);
     });
+    
+    // Assemble table
+    table.appendChild(thead);
+    table.appendChild(tbody);
+    tableContainer.appendChild(table);
+    container.appendChild(tableContainer);
+}
+
+// Helper function to escape HTML (from courses.js)
+function escapeHtml(unsafe) {
+    if (!unsafe) return '';
+    return unsafe
+        .toString()
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+// Helper function to get enrollment badge class (from courses.js)
+function getEnrollmentBadgeClass(count) {
+    if (!count) return 'bg-gray-100 text-gray-800';
+    if (count > 50) return 'bg-green-100 text-green-800';
+    if (count > 20) return 'bg-blue-100 text-blue-800';
+    return 'bg-amber-100 text-amber-800';
 }
 
 /**

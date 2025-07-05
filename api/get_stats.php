@@ -24,24 +24,42 @@ try {
     error_log("Fetching Moodle statistics...");
     
     // Get site statistics
+    error_log("Fetching site statistics...");
     $stats = get_site_statistics();
     
+    // Log the statistics for debugging
+    if (isset($stats['error'])) {
+        error_log("Error getting site statistics: " . $stats['error']);
+        throw new Exception("Failed to retrieve site statistics: " . $stats['error']);
+    }
+    
+    error_log("Site statistics retrieved: " . print_r($stats, true));
+    
     // Get top enrolled courses
+    error_log("Fetching top enrolled courses...");
     $top_courses = get_top_enrolled_courses(5);
+    
     if (isset($top_courses['error'])) {
-        error_log("Error getting top courses: " . $top_courses['error']);
-        $top_courses = [];
+        $error_message = "Error getting top courses: " . $top_courses['error'];
+        error_log($error_message);
+        // Instead of failing the whole request, we'll return an empty array for top_courses
+        // but still include the error in the debug info
+        $top_courses_data = [];
+        $response['debug']['top_courses_error'] = $top_courses['error'];
+    } else {
+        error_log("Successfully retrieved " . count($top_courses) . " top courses");
+        $top_courses_data = $top_courses;
     }
 
-    // Prepare response
+    // Prepare response with all available data
     $response = [
         'success' => true,
         'data' => [
-            'total_users' => $stats['total_users'],
+            'total_users' => $stats['total_users'] ?? 0,
             'active_users' => $stats['active_users'],
             'total_courses' => $stats['total_courses'],
-            'total_categories' => $stats['total_categories'],
-            'top_courses' => $top_courses
+            'total_categories' => $stats['total_categories'] ?? 0,
+            'top_courses' => $top_courses_data
         ],
         'timestamp' => date('Y-m-d H:i:s'),
         'debug' => [
