@@ -124,27 +124,34 @@ function get_top_enrolled_courses($limit = 5) {
     try {
         error_log("Getting top $limit enrolled courses...");
         
-        // First, get all courses with their enrollment counts
+        // First, get all categories in one go
+        $categories_result = call_moodle_api('core_course_get_categories', []);
+        $categories = [];
+        if (!empty($categories_result) && !isset($categories_result['error'])) {
+            foreach ($categories_result as $category) {
+                if (isset($category['id']) && isset($category['name'])) {
+                    $categories[$category['id']] = $category['name'];
+                }
+            }
+        }
+        
+        // Get all courses with their enrollment counts
         $courses = call_moodle_api('core_course_get_courses', [
             'options' => [
-                ['name' => 'sortby', 'value' => 'enrolledusercount'],
-                ['name' => 'sortorder', 'value' => 'DESC'],
-                ['name' => 'limit', 'value' => $limit]
+                'ids' => [] // Empty array means get all courses
             ]
         ]);
+        
+        error_log("Found " . count($courses) . " courses");
+        
+        if (empty($courses)) {
+            error_log("No courses returned from API");
+            return [];
+        }
         
         if (isset($courses['error'])) {
             error_log("Error getting courses: " . $courses['error']);
             return ['error' => $courses['error']];
-        }
-        
-        // Get all categories in one go
-        $categories_result = call_moodle_api('core_course_get_categories', []);
-        $categories = [];
-        if (!isset($categories_result['error'])) {
-            foreach ($categories_result as $category) {
-                $categories[$category['id']] = $category['name'];
-            }
         }
         
         // Process the courses
@@ -152,14 +159,26 @@ function get_top_enrolled_courses($limit = 5) {
         foreach ($courses as $course) {
             if (!is_array($course) || empty($course['id'])) continue;
             
+            // Get enrollment count for this course
+            $enrolled_users = call_moodle_api('core_enrol_get_enrolled_users', [
+                'courseid' => $course['id']
+            ]);
+            
+            $enrolled_count = is_array($enrolled_users) ? count($enrolled_users) : 0;
+            
+            // Get category name from pre-fetched categories
+            $category_id = $course['category'] ?? 0;
+            $category_name = $categories[$category_id] ?? 'Uncategorized';
+            
             $result[] = [
                 'id' => $course['id'],
                 'fullname' => $course['fullname'] ?? 'Unnamed Course',
                 'shortname' => $course['shortname'] ?? '',
-                'enrolledusercount' => $course['enrolledusercount'] ?? 0,
-                'categoryid' => $course['category'] ?? 0,
-                'categoryname' => $categories[$course['category']] ?? 'Uncategorized',
-                'courseimage' => $course['courseimage'] ?? 'https://via.placeholder.com/400x200?text=No+Image'
+                'enrolledusercount' => $enrolled_count,
+                'categoryid' => $category_id,
+                'categoryname' => $category_name,
+                'courseimage' => $course['courseimage'] ?? 'https://via.placeholder.com/400x200?text=No+Image',
+                'summary' => $course['summary'] ?? ''
             ];
         }
         
