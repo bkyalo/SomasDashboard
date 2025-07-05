@@ -377,11 +377,101 @@ function get_site_statistics() {
     return $stats;
 }
 
-// Helper function to log errors
+/**
+ * Get all courses with enrollment counts and teacher information
+ * @return array Array of courses with their details
+ */
+function get_all_courses_with_enrollments() {
+    try {
+        // Get all courses
+        $courses = call_moodle_api('core_course_get_courses', []);
+        
+        if (empty($courses) || isset($courses['error'])) {
+            log_error('Failed to fetch courses', $courses);
+            return [];
+        }
+        
+        // Get all categories
+        $categories = [];
+        $categories_result = call_moodle_api('core_course_get_categories', []);
+        if (!empty($categories_result) && !isset($categories_result['error'])) {
+            foreach ($categories_result as $category) {
+                $categories[$category['id']] = $category['name'];
+            }
+        }
+        
+        $result = [];
+        
+        foreach ($courses as $course) {
+            // Skip the front page course (usually ID 1)
+            if ($course['id'] == 1) {
+                continue;
+            }
+            
+            // Get enrolled users
+            $enrolled_users = [];
+            try {
+                $enrolled_users = call_moodle_api('core_enrol_get_enrolled_users', [
+                    'courseid' => $course['id'],
+                    'options' => [
+                        ['name' => 'onlyactive', 'value' => 1]
+                    ]
+                ]);
+            } catch (Exception $e) {
+                log_error("Error getting enrolled users for course {$course['id']}: " . $e->getMessage());
+            }
+            
+            // Count students and find teachers
+            $student_count = 0;
+            $teachers = [];
+            
+            foreach ($enrolled_users as $user) {
+                foreach ($user['roles'] as $role) {
+                    if ($role['shortname'] === 'editingteacher' || $role['shortname'] === 'teacher') {
+                        $teachers[] = $user['fullname'];
+                        break;
+                    }
+                }
+                if (empty($user['roles']) || 
+                    (isset($user['roles'][0]['shortname']) && $user['roles'][0]['shortname'] === 'student')) {
+                    $student_count++;
+                }
+            }
+            
+            // Add course to result
+            $result[] = [
+                'id' => $course['id'],
+                'fullname' => $course['fullname'],
+                'shortname' => $course['shortname'],
+                'categoryid' => $course['category'],
+                'categoryname' => $categories[$course['category']] ?? 'Uncategorized',
+                'enrolledusercount' => $student_count,
+                'teacher' => !empty($teachers) ? $teachers[0] : null,
+                'teacher_count' => count($teachers),
+                'visible' => $course['visible'] ?? 1
+            ];
+        }
+        
+        // Sort by enrolled users (descending)
+        usort($result, function($a, $b) {
+            return $b['enrolledusercount'] - $a['enrolledusercount'];
+        });
+        
+        return $result;
+        
+    } catch (Exception $e) {
+        log_error('Error in get_all_courses_with_enrollments: ' . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Helper function to log errors
+ */
 function log_error($message, $data = null) {
-    error_log("[ERROR] $message");
+    error_log("[ERROR] " . $message);
     if ($data !== null) {
-        error_log("[ERROR DATA] " . print_r($data, true));
+        error_log("Data: " . print_r($data, true));
     }
 }
 ?>

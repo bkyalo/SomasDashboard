@@ -45,25 +45,50 @@ $stats = get_site_statistics();
 
         <!-- Main Content -->
         <div class="flex-1 overflow-y-auto">
-            <!-- Top Navigation -->
-            <header class="bg-white shadow-sm">
-                <div class="flex justify-between items-center px-6 py-4">
-                    <h2 class="text-xl font-semibold text-gray-800">Dashboard</h2>
-                    <div class="flex items-center">
-                        <div class="relative">
-                            <input type="text" class="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Search...">
-                            <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                <!-- Top Navigation -->
+                <header class="bg-white shadow-sm">
+                    <div class="flex justify-between items-center px-6 py-3">
+                        <div class="flex items-center space-x-6">
+                            <h2 class="text-xl font-semibold text-gray-800">Dashboard</h2>
+                            <nav class="hidden md:flex space-x-1">
+                                <a href="index.php" class="px-3 py-2 text-sm font-medium rounded-md <?php echo basename($_SERVER['PHP_SELF']) === 'index.php' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-100'; ?>">
+                                    Overview
+                                </a>
+                                <a href="courses.php" class="px-3 py-2 text-sm font-medium rounded-md <?php echo basename($_SERVER['PHP_SELF']) === 'courses.php' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-100'; ?>">
+                                    Courses
+                                </a>
+                                <a href="#" class="px-3 py-2 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-100">
+                                    Users
+                                </a>
+                                <a href="#" class="px-3 py-2 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-100">
+                                    Reports
+                                </a>
+                            </nav>
                         </div>
-                        <div class="ml-4 relative">
-                            <button class="flex items-center focus:outline-none">
-                                <img src="https://ui-avatars.com/api/?name=Admin&background=4f46e5&color=fff" alt="User" class="w-8 h-8 rounded-full">
-                                <span class="ml-2 text-sm font-medium">Admin</span>
-                                <i class="fas fa-chevron-down ml-1 text-xs"></i>
+                        <div class="flex items-center space-x-4">
+                            <div class="relative hidden md:block">
+                                <input type="text" placeholder="Search..." class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm w-64" id="globalSearch">
+                                <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                            </div>
+                            <button class="p-2 text-gray-500 hover:text-blue-600 rounded-full hover:bg-gray-100 relative">
+                                <i class="fas fa-bell"></i>
+                                <span class="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500"></span>
                             </button>
+                            <div class="h-8 w-px bg-gray-200"></div>
+                            <div class="flex items-center">
+                                <div class="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-semibold">
+                                    <?php echo isset($_SESSION['user_name']) ? substr(trim($_SESSION['user_name']), 0, 1) : 'U'; ?>
+                                </div>
+                                <span class="ml-2 text-sm font-medium text-gray-700 hidden md:inline">
+                                    <?php echo isset($_SESSION['user_name']) ? htmlspecialchars(explode(' ', $_SESSION['user_name'])[0]) : 'User'; ?>
+                                </span>
+                                <button class="ml-1 text-gray-500 hover:text-gray-700">
+                                    <i class="fas fa-chevron-down text-xs"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </header>
+                </header>
 
             <!-- Dashboard Content -->
             <main class="p-6">
