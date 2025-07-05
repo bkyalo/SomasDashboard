@@ -180,6 +180,8 @@ require_once 'api_functions.php';
     <script>
         // Global variables
         let allCategories = [];
+        let currentPage = 1;
+        let totalPages = 1;
         
         // Function to fetch categories from the API
         async function fetchCategories() {
@@ -271,69 +273,28 @@ require_once 'api_functions.php';
                 return;
             }
             
-            try {
-                console.log('Populating category filter with categories:', allCategories);
-                
-                // Store current selected value
-                const currentValue = categoryFilter.value;
-                
-                // Clear existing options except the first one
-                while (categoryFilter.options.length > 1) {
-                    categoryFilter.remove(1);
-                }
-                
-                // Sort categories by name for better UX
-                const sortedCategories = [...allCategories].sort((a, b) => {
-                    return (a.name || '').localeCompare(b.name || '');
-                });
-                
-                // Add categories to the dropdown
-                sortedCategories.forEach(category => {
-                    try {
-                        // Ensure category has required fields
-                        const categoryId = String(category.id ?? '');
-                        const categoryName = String(category.name || 'Unnamed Category');
-                        
-                        if (categoryId && categoryName) {
-                            const option = document.createElement('option');
-                            option.value = categoryId;
-                            option.textContent = categoryName;
-                            categoryFilter.appendChild(option);
-                            
-                            // Log the added category for debugging
-                            console.log('Added category:', { id: categoryId, name: categoryName });
-                        } else {
-                            console.warn('Skipping invalid category:', category);
-                        }
-                    } catch (err) {
-                        console.error('Error processing category:', category, err);
-                    }
-                });
-                
-                // Restore selected value if it still exists
-                if (currentValue) {
-                    const optionExists = Array.from(categoryFilter.options).some(
-                        opt => String(opt.value) === String(currentValue)
-                    );
-                    
-                    if (optionExists) {
-                        categoryFilter.value = currentValue;
-                        console.log('Restored selected category:', currentValue);
-                    } else {
-                        console.log('Previous category selection not found in new options');
-                    }
-                }
-                
-                console.log('Category filter populated with', categoryFilter.options.length - 1, 'categories');
-                
-            } catch (error) {
-                console.error('Error populating category filter:', error);
-                // Show error in the UI if possible
-                const errorElement = document.createElement('div');
-                errorElement.className = 'text-red-500 text-sm mt-2';
-                errorElement.textContent = 'Error loading categories';
-                categoryFilter.parentNode.appendChild(errorElement);
+            // Clear existing options except the first one (All Categories)
+            while (categoryFilter.options.length > 1) {
+                categoryFilter.remove(1);
             }
+            
+            // Add categories to the dropdown
+            allCategories.forEach(category => {
+                const option = document.createElement('option');
+                option.value = category.id;
+                option.textContent = category.name;
+                categoryFilter.appendChild(option);
+            });
+            
+            // Add event listener for category filter change
+            categoryFilter.removeEventListener('change', handleCategoryChange); // Remove existing listener to avoid duplicates
+            categoryFilter.addEventListener('change', handleCategoryChange);
+        }
+        
+        // Function to handle category filter change
+        function handleCategoryChange(e) {
+            currentPage = 1; // Reset to first page when changing categories
+            fetchCourses();
         }
         
         // Function to update stats from the API
@@ -421,14 +382,6 @@ require_once 'api_functions.php';
                 const categoryValue = categoryFilter ? categoryFilter.value : '';
                 const rowsPerPage = document.getElementById('rowsPerPage').value;
                 
-                // Debug log
-                console.log('Fetching courses with params:', {
-                    search: searchQuery,
-                    category: categoryValue,
-                    page: currentPage,
-                    per_page: rowsPerPage
-                });
-                
                 // Show loading state
                 const tbody = document.querySelector('#coursesTable tbody');
                 if (tbody) {
@@ -452,7 +405,6 @@ require_once 'api_functions.php';
                 
                 if (categoryValue) {
                     params.append('category', categoryValue);
-                    console.log('Added category filter:', categoryValue);
                 }
                 
                 const response = await fetch(`api/get_courses.php?${params.toString()}`);
@@ -466,6 +418,9 @@ require_once 'api_functions.php';
                     if (data.pagination) {
                         renderPagination(data.pagination);
                     }
+                    
+                    // Update stats
+                    updateStats();
                 } else {
                     throw new Error(data.error || 'Failed to fetch courses');
                 }
@@ -477,6 +432,7 @@ require_once 'api_functions.php';
                         <tr>
                             <td colspan="5" class="text-center py-8 text-red-500">
                                 Error loading courses. Please try again.
+                                <br><small>${error.message || ''}</small>
                             </td>
                         </tr>`;
                 }
@@ -485,15 +441,6 @@ require_once 'api_functions.php';
         
         // Function to handle category filter change
         function handleCategoryChange(e) {
-            console.log('Category filter changed:', {
-                value: e.target.value,
-                selectedIndex: e.target.selectedIndex,
-                options: Array.from(e.target.options).map(opt => ({
-                    value: opt.value,
-                    text: opt.text,
-                    selected: opt.selected
-                }))
-            });
             currentPage = 1; // Reset to first page when changing categories
             fetchCourses();
         }
@@ -547,6 +494,100 @@ require_once 'api_functions.php';
         });
     </script>
     <script>
+        // Utility function to escape HTML to prevent XSS
+        function escapeHtml(unsafe) {
+            return unsafe
+                .toString()
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        // Function to get the appropriate badge class based on enrollment count
+        function getEnrollmentBadgeClass(count) {
+            if (count === 0) return 'bg-gray-100 text-gray-800';
+            if (count < 20) return 'bg-blue-100 text-blue-800';
+            if (count < 50) return 'bg-green-100 text-green-800';
+            if (count < 100) return 'bg-yellow-100 text-yellow-800';
+            return 'bg-red-100 text-red-800';
+        }
+
+        // Function to render pagination controls
+        function renderPagination(pagination) {
+            const paginationContainer = document.getElementById('pagination');
+            if (!paginationContainer) return;
+            
+            const { current_page, total_pages } = pagination;
+            totalPages = total_pages;
+            
+            let paginationHTML = '<div class="flex items-center space-x-1">';
+            
+            // Previous button
+            paginationHTML += `
+                <button 
+                    onclick="changePage(${current_page - 1})" 
+                    ${current_page === 1 ? 'disabled' : ''}
+                    class="px-3 py-1 rounded-md ${current_page === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-50'}"
+                >
+                    &larr; Previous
+                </button>`;
+            
+            // Page numbers
+            const maxVisiblePages = 5;
+            let startPage = Math.max(1, current_page - Math.floor(maxVisiblePages / 2));
+            let endPage = Math.min(total_pages, startPage + maxVisiblePages - 1);
+            
+            if (endPage - startPage + 1 < maxVisiblePages) {
+                startPage = Math.max(1, endPage - maxVisiblePages + 1);
+            }
+            
+            if (startPage > 1) {
+                paginationHTML += `
+                    <button onclick="changePage(1)" class="px-3 py-1 rounded-md bg-white text-gray-700 hover:bg-gray-50">
+                        1
+                    </button>`;
+                if (startPage > 2) {
+                    paginationHTML += '<span class="px-2">...</span>';
+                }
+            }
+            
+            for (let i = startPage; i <= endPage; i++) {
+                paginationHTML += `
+                    <button 
+                        onclick="changePage(${i})" 
+                        class="w-10 h-10 rounded-md ${i === current_page ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}"
+                    >
+                        ${i}
+                    </button>`;
+            }
+            
+            if (endPage < total_pages) {
+                if (endPage < total_pages - 1) {
+                    paginationHTML += '<span class="px-2">...</span>';
+                }
+                paginationHTML += `
+                    <button onclick="changePage(${total_pages})" class="px-3 py-1 rounded-md bg-white text-gray-700 hover:bg-gray-50">
+                        ${total_pages}
+                    </button>`;
+            }
+            
+            // Next button
+            paginationHTML += `
+                <button 
+                    onclick="changePage(${current_page + 1})" 
+                    ${current_page === total_pages ? 'disabled' : ''}
+                    class="px-3 py-1 rounded-md ${current_page === total_pages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-50'}"
+                >
+                    Next &rarr;
+                </button>`;
+            
+            paginationHTML += '</div>';
+            
+            paginationContainer.innerHTML = paginationHTML;
+        }
+
         // Make the changePage function available globally for pagination
         // The actual implementation is in courses.js
         window.changePage = function(page) {

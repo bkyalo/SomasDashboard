@@ -436,8 +436,8 @@ require_once 'api_functions.php';
                 if (data.success) {
                     // Update the stats cards
                     document.getElementById('totalCourses').textContent = data.data.total_short_courses || 0;
-                    document.getElementById('totalStudents').textContent = data.data.total_students || 0;
-                    document.getElementById('totalTeachers').textContent = data.data.total_teachers || 0;
+                    document.getElementById('totalStudents').textContent = data.data.total_short_course_students || 0;
+                    document.getElementById('totalTeachers').textContent = data.data.total_short_course_teachers || 0;
                     document.getElementById('totalCategories').textContent = data.data.total_categories || 0;
                 }
             } catch (error) {
