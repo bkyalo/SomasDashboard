@@ -8,143 +8,111 @@ ini_set('display_errors', 1);
 /**
  * Make a REST call to Moodle API
  */
-function call_moodle_api($function_name, $params = array()) {
-    try {
-        // Build the API URL with required parameters
-        $serverurl = rtrim(MOODLE_API_URL, '/') . '/webservice/rest/server.php';
-        $query_params = [
-            'wstoken' => MOODLE_API_TOKEN,
-            'wsfunction' => $function_name,
-            'moodlewsrestformat' => 'json'
-        ];
-        
-        $serverurl .= '?' . http_build_query($query_params);
-        
-        // Log the request (without sensitive data)
-        $log_url = str_replace(MOODLE_API_TOKEN, '***', $serverurl);
-        error_log("\n=== Moodle API Request ===");
-        error_log("Function: $function_name");
-        error_log("URL: $log_url");
-        error_log("Params: " . print_r($params, true));
-        
-        // Initialize cURL
-        $ch = curl_init();
-        
-        // Set cURL options
-        $options = [
-            CURLOPT_URL => $serverurl,
-            CURLOPT_POST => 1,
-            CURLOPT_POSTFIELDS => http_build_query($params, '', '&'),
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_SSL_VERIFYPEER => false, // Disable for testing, enable in production
-            CURLOPT_SSL_VERIFYHOST => 0,     // Disable for testing, set to 2 in production
-            CURLOPT_TIMEOUT => 30,
-            CURLOPT_CONNECTTIMEOUT => 10,
-            CURLOPT_HTTPHEADER => [
-                'Content-Type: application/x-www-form-urlencoded',
-                'Accept: application/json',
-                'User-Agent: Moodle Analytics Dashboard/1.0'
-            ],
-            CURLOPT_HEADER => false,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_MAXREDIRS => 5
-        ];
-        
-        curl_setopt_array($ch, $options);
-        
-        // Execute request
-        $start_time = microtime(true);
-        $response = curl_exec($ch);
-        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $total_time = round((microtime(true) - $start_time) * 1000, 2);
-        
-        // Get error info
-        $curl_error = curl_error($ch);
-        $curl_errno = curl_errno($ch);
-        $content_type = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
-        
-        // Close cURL resource
-        curl_close($ch);
-        
-        // Log response info
-        $log_response = is_string($response) && strlen($response) > 1000 
-            ? substr($response, 0, 1000) . "... [truncated]" 
-            : $response;
-            
-        error_log("\n=== Moodle API Response ===");
-        error_log("HTTP Status: $http_code");
-        error_log("Time: {$total_time}ms");
-        error_log("Content-Type: $content_type");
-        error_log("Response: " . $log_response);
-        
-        // Handle cURL errors
-        if ($curl_errno) {
-            $error_msg = "cURL Error [$curl_errno]: $curl_error";
-            error_log($error_msg);
-            return ['error' => $error_msg, 'curl_errno' => $curl_errno];
+function call_moodle_api($functionname, $params = []) {
+    // Add required Moodle web service parameters
+    $params['wstoken'] = MOODLE_API_TOKEN;
+    $params['wsfunction'] = $functionname;
+    $params['moodlewsrestformat'] = 'json';
+    
+    // Format parameters for Moodle's web service
+    $post_data = [];
+    foreach ($params as $key => $value) {
+        if (is_array($value)) {
+            // Handle array parameters (like options)
+            foreach ($value as $i => $item) {
+                if (is_array($item)) {
+                    foreach ($item as $k => $v) {
+                        $post_data["$key" . "[$i]" . "[$k]"] = $v;
+                    }
+                } else {
+                    $post_data["$key" . "[$i]"] = $item;
+                }
+            }
+        } else {
+            $post_data[$key] = $value;
         }
-        
-        // Check for empty response
-        if ($response === false || $response === '') {
-            $error_msg = "Empty response from Moodle API";
-            error_log($error_msg);
-            return ['error' => $error_msg, 'http_code' => $http_code];
-        }
-        
-        // Decode JSON response
-        $decoded = json_decode($response, true);
-        
-        // Check for JSON decode errors
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            $error_msg = "JSON decode error: " . json_last_error_msg();
-            error_log($error_msg);
-            return [
-                'error' => $error_msg,
-                'json_error' => json_last_error_msg(),
-                'http_code' => $http_code,
-                'raw_response' => $log_response
-            ];
-        }
-        
-        // Check for Moodle exceptions or errors
-        if (isset($decoded['exception'])) {
-            $error_msg = "Moodle Exception: " . ($decoded['message'] ?? 'Unknown error');
-            error_log($error_msg);
-            error_log("Exception details: " . print_r($decoded, true));
-            return [
-                'error' => $error_msg,
-                'exception' => $decoded['exception'],
-                'errorcode' => $decoded['errorcode'] ?? null,
-                'debuginfo' => $decoded['debuginfo'] ?? null,
-                'http_code' => $http_code
-            ];
-        }
-        
-        // Check for Moodle error format
-        if (isset($decoded['errorcode'])) {
-            $error_msg = "Moodle Error [{$decoded['errorcode']}]: {$decoded['message']}";
-            error_log($error_msg);
-            return [
-                'error' => $error_msg,
-                'errorcode' => $decoded['errorcode'],
-                'debuginfo' => $decoded['debuginfo'] ?? null,
-                'http_code' => $http_code
-            ];
-        }
-        
-        return $decoded;
-        
-    } catch (Exception $e) {
-        $error_msg = "Unexpected error in call_moodle_api: " . $e->getMessage();
-        error_log($error_msg);
-        error_log("Stack trace: " . $e->getTraceAsString());
-        return [
-            'error' => $error_msg,
-            'exception' => get_class($e),
-            'file' => $e->getFile(),
-            'line' => $e->getLine()
-        ];
     }
+    
+    // Build the query string
+    $query_string = http_build_query($post_data, '', '&');
+    
+    // Log the request
+    error_log("\n=== Moodle API Request ===");
+    error_log("Function: $functionname");
+    error_log("URL: " . MOODLE_API_URL);
+    error_log("Params: " . print_r($post_data, true));
+    
+    // Initialize cURL
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, MOODLE_API_URL);
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $query_string);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // Disable SSL verification for now
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/x-www-form-urlencoded',
+        'User-Agent: Moodle Analytics Dashboard/1.0'
+    ]);
+    
+    // Execute the request
+    $response = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $error = curl_error($ch);
+    $errno = curl_errno($ch);
+    
+    // Log the response
+    error_log("\n=== Moodle API Response ===");
+    error_log("Status: $http_code");
+    error_log("Response: " . substr($response, 0, 2000));
+    
+    // Check for cURL errors
+    if ($errno) {
+        $error_message = "cURL Error ($errno): $error";
+        error_log("ERROR: $error_message");
+        curl_close($ch);
+        return ['error' => $error_message];
+    }
+    
+    curl_close($ch);
+    
+    // Check for empty response
+    if (empty($response)) {
+        $error_message = "Empty response from Moodle API";
+        error_log("ERROR: $error_message");
+        return ['error' => $error_message];
+    }
+    
+    // Parse the JSON response
+    $result = json_decode($response, true);
+    
+    // Check for JSON parsing errors
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        $error_message = 'JSON Parse Error: ' . json_last_error_msg() . ' - Response: ' . substr($response, 0, 500);
+        error_log("ERROR: $error_message");
+        return ['error' => $error_message];
+    }
+    
+    // Check for Moodle exceptions or errors
+    if (isset($result['exception'])) {
+        $error_message = "Moodle Exception: " . ($result['message'] ?? 'Unknown error');
+        error_log("ERROR: $error_message");
+        if (isset($result['debuginfo'])) {
+            error_log("Debug Info: " . $result['debuginfo']);
+        }
+        return ['error' => $error_message];
+    }
+    
+    // Check for error message in the response
+    if (isset($result['error'])) {
+        $error_message = "Moodle Error: " . $result['error'];
+        error_log("ERROR: $error_message");
+        return ['error' => $error_message];
+    }
+    
+    error_log("API Call Successful");
+    return $result;
 }
 
 /**
@@ -177,39 +145,53 @@ function get_site_statistics() {
         error_log("User ID: " . ($siteinfo['userid'] ?? 'N/A'));
         error_log("User Count: " . ($siteinfo['usercount'] ?? 'N/A'));
         
-        // Get total user count by fetching all users with pagination
+        // Get total user count using core_enrol_get_enrolled_users with pagination
         error_log("Getting total user count...");
         $stats['total_users'] = 0;
         $perpage = 1000;
         $page = 0;
         $has_more = true;
         
-        while ($has_more) {
-            $users = call_moodle_api('core_user_get_users', [
-                'criteria[0][key]' => 'suspended',
-                'criteria[0][value]' => 0, // Only active users
-                'criteria[1][key]' => 'deleted',
-                'criteria[1][value]' => 0, // Not deleted
-                'limitfrom' => $page * $perpage,
-                'limitnumber' => $perpage
-            ]);
-            
-            if (isset($users['error'])) {
-                error_log("Error getting users: " . $users['error']);
-                $stats['total_users'] = 'Error: ' . $users['error'];
-                break;
-            }
-            
-            if (empty($users['users']) || !is_array($users['users'])) {
-                $has_more = false;
-            } else {
-                $count = count($users['users']);
-                $stats['total_users'] += $count;
-                $page++;
+        // First try to get from site info which is faster
+        $site_info = call_moodle_api('core_webservice_get_site_info');
+        if (isset($site_info['usercount'])) {
+            $stats['total_users'] = (int)$site_info['usercount'];
+            error_log("Got user count from site info: " . $stats['total_users']);
+        } else {
+            // Fallback to paginated user count if site info fails
+            error_log("Falling back to paginated user count...");
+            while ($has_more) {
+                $users = call_moodle_api('core_enrol_get_enrolled_users', [
+                    'courseid' => 1, // Site course
+                    'options' => [
+                        ['name' => 'limitfrom', 'value' => $page * $perpage],
+                        ['name' => 'limitnumber', 'value' => $perpage]
+                    ]
+                ]);
                 
-                // If we got fewer users than requested, we've reached the end
-                if ($count < $perpage) {
+                if (isset($users['error'])) {
+                    error_log("Error getting users: " . $users['error']);
+                    $stats['total_users'] = 'Error: ' . $users['error'];
+                    break;
+                }
+                
+                if (empty($users) || !is_array($users)) {
                     $has_more = false;
+                } else {
+                    $count = count($users);
+                    $stats['total_users'] += $count;
+                    $page++;
+                    
+                    // If we got fewer users than requested, we've reached the end
+                    if ($count < $perpage) {
+                        $has_more = false;
+                    }
+                    
+                    // Prevent infinite loops
+                    if ($page > 100) {
+                        error_log("Warning: Reached maximum page limit for user pagination");
+                        break;
+                    }
                 }
             }
         }
@@ -243,28 +225,54 @@ function get_site_statistics() {
             $stats['total_categories'] = is_array($categories) ? count($categories) : 0;
         }
         
-        // Get active users in last 60 minutes
+        // Get active users in last 60 minutes using report_log_get_recent_activity
         error_log("Getting active users...");
-        $active_users = call_moodle_api('core_user_get_users', [
-            'criteria[0][key]' => 'lastaccess',
-            'criteria[0][value]' => time() - 3600, // Last hour
-            'criteria[0][operator]' => '>',
-            'criteria[1][key]' => 'suspended',
-            'criteria[1][value]' => 0, // Only active users
-            'criteria[2][key]' => 'deleted',
-            'criteria[2][value]' => 0, // Not deleted
-            'limitnumber' => 1 // We only need the count, not the actual users
+        $one_hour_ago = time() - 3600;
+        $active_users = call_moodle_api('report_log_get_recent_activity', [
+            'courseid' => 1, // Site course
+            'limit' => 1000,
+            'since' => $one_hour_ago
         ]);
         
         if (isset($active_users['error'])) {
             error_log("Error getting active users: " . $active_users['error']);
-            $stats['active_users'] = 'Error: ' . $active_users['error'];
-        } else {
-            // If we have a 'total' in the response, use that, otherwise count the users
-            if (isset($active_users['total'])) {
-                $stats['active_users'] = (int)$active_users['total'];
+            
+            // Fallback to core_enrol_get_enrolled_users if report_log fails
+            error_log("Falling back to core_enrol_get_enrolled_users for active users...");
+            $active_users = call_moodle_api('core_enrol_get_enrolled_users', [
+                'courseid' => 1, // Site course
+                'options' => [
+                    ['name' => 'limitnumber', 'value' => 1000],
+                    ['name' => 'userfields', 'value' => 'id,lastaccess']
+                ]
+            ]);
+            
+            if (isset($active_users['error'])) {
+                $stats['active_users'] = 'Error: ' . $active_users['error'];
             } else {
-                $stats['active_users'] = is_array($active_users['users'] ?? null) ? count($active_users['users']) : 0;
+                // Count users with lastaccess in the last hour
+                $active_count = 0;
+                if (is_array($active_users)) {
+                    foreach ($active_users as $user) {
+                        if (isset($user['lastaccess']) && $user['lastaccess'] >= $one_hour_ago) {
+                            $active_count++;
+                        }
+                    }
+                }
+                $stats['active_users'] = $active_count;
+            }
+        } else {
+            // Count unique users from the logs
+            $active_user_ids = [];
+            if (isset($active_users['logs']) && is_array($active_users['logs'])) {
+                foreach ($active_users['logs'] as $log) {
+                    if (isset($log['userid']) && $log['userid'] > 0) {
+                        $active_user_ids[$log['userid']] = true;
+                    }
+                }
+                $stats['active_users'] = count($active_user_ids);
+            } else {
+                $stats['active_users'] = 0;
             }
         }
         
