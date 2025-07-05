@@ -139,35 +139,35 @@ require_once 'api_functions.php';
                             <thead class="bg-gray-50">
                                 <tr>
                                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course Name</th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
                                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Teacher</th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enrolled Students</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Students</th>
                                     <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody class="bg-white divide-y divide-gray-200">
-                                <tr>
-                                    <td colspan="5" class="px-6 py-12 text-center text-gray-500">
+                            <tbody id="coursesTableBody" class="bg-white divide-y divide-gray-200">
+                                <!-- Rows will be populated by JavaScript -->
+                                <tr id="loadingIndicator">
+                                    <td colspan="5" class="px-6 py-8 text-center">
                                         <div class="flex justify-center">
                                             <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
                                         </div>
-                                        <p class="mt-2">Loading short courses...</p>
+                                        <p class="mt-2 text-sm text-gray-500">Loading short courses...</p>
                                     </td>
                                 </tr>
                             </tbody>
                         </table>
+                        
+                        <!-- No courses message (hidden by default) -->
+                        <div id="noCoursesMessage" class="hidden px-6 py-8 text-center">
+                            <i class="fas fa-book-open text-4xl text-gray-300 mb-2"></i>
+                            <p class="text-gray-500">No short courses found. Try adjusting your search.</p>
+                        </div>
                     </div>
                     
-                    <!-- Pagination will be inserted here by JavaScript -->
-                    <div id="pagination" class="bg-white px-6 py-3 flex items-center justify-between border-t border-gray-200">
-                        <div class="flex-1 flex justify-between sm:hidden">
-                            <a href="#" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                                Previous
-                            </a>
-                            <a href="#" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                                Next
-                            </a>
-                        </div>
+                    <!-- Pagination -->
+                    <div id="pagination" class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+                        <!-- Pagination will be inserted here by JavaScript -->
                     </div>
                 </div>
             </div>
@@ -175,6 +175,27 @@ require_once 'api_functions.php';
     </div>
 
     <script>
+        // Utility function to escape HTML to prevent XSS
+        function escapeHtml(unsafe) {
+            if (unsafe === null || unsafe === undefined) return '';
+            return unsafe
+                .toString()
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+        
+        // Function to determine badge class based on enrollment count
+        function getEnrollmentBadgeClass(count) {
+            if (count === 0) return 'bg-red-100 text-red-800';
+            if (count >= 1 && count <= 19) return 'bg-yellow-100 text-yellow-800';
+            if (count >= 20 && count <= 49) return 'bg-gray-100 text-gray-800';
+            if (count >= 50 && count <= 99) return 'bg-green-100 text-green-800';
+            return 'bg-blue-100 text-blue-800'; // 100+
+        }
+
         // Global variables
         let allCategories = [];
         let currentPage = 1;
@@ -351,80 +372,61 @@ require_once 'api_functions.php';
         // Function to update the courses table with the provided courses
         function updateCoursesTable(courses) {
             const tbody = document.querySelector('#coursesTable tbody');
+            const noCoursesMessage = document.getElementById('noCoursesMessage');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            
             if (!tbody) return;
             
+            // Hide loading indicator
+            if (loadingIndicator) {
+                loadingIndicator.style.display = 'none';
+            }
+            
             if (!courses || courses.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="5" class="px-6 py-12 text-center text-gray-500">
-                            No short courses found.
-                        </td>
-                    </tr>`;
+                // Show no courses message
+                if (noCoursesMessage) {
+                    noCoursesMessage.classList.remove('hidden');
+                }
+                tbody.innerHTML = '';
                 return;
             }
             
-            // Clear existing rows
-            tbody.innerHTML = '';
+            // Hide no courses message if there are courses
+            if (noCoursesMessage) {
+                noCoursesMessage.classList.add('hidden');
+            }
             
-            // Add each course as a row
-            courses.forEach(course => {
-                const row = document.createElement('tr');
-                row.className = 'hover:bg-gray-50';
-                
-                // Format the course name with a link to view details
-                const courseName = document.createElement('td');
-                courseName.className = 'px-6 py-4 whitespace-nowrap';
-                courseName.innerHTML = `
-                    <div class="flex items-center">
-                        <div class="ml-4">
-                            <div class="text-sm font-medium text-gray-900">
-                                <a href="${MOODLE_URL}/course/view.php?id=${course.id}" target="_blank" class="text-blue-600 hover:text-blue-800 hover:underline">
-                                    ${course.fullname || 'Untitled Course'}
-                                </a>
+            // Clear existing rows and add new ones
+            tbody.innerHTML = courses.map(course => `
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-book text-blue-600"></i>
                             </div>
-                            <div class="text-sm text-gray-500">${course.shortname || ''}</div>
+                            <div class="ml-4">
+                                <div class="text-sm font-medium text-gray-900">${escapeHtml(course.fullname || 'Untitled Course')}</div>
+                                <div class="text-xs text-gray-500">${escapeHtml(course.categoryname || 'Uncategorized')}</div>
+                            </div>
                         </div>
-                    </div>`;
-                
-                // Category
-                const category = document.createElement('td');
-                category.className = 'px-6 py-4 whitespace-nowrap';
-                category.innerHTML = `
-                    <div class="text-sm text-gray-900">${course.categoryname || 'Uncategorized'}</div>`;
-                
-                // Teacher
-                const teacher = document.createElement('td');
-                teacher.className = 'px-6 py-4 whitespace-nowrap';
-                teacher.innerHTML = `
-                    <div class="text-sm text-gray-900">${course.teacher || 'N/A'}</div>`;
-                
-                // Enrolled students
-                const students = document.createElement('td');
-                students.className = 'px-6 py-4 whitespace-nowrap';
-                students.innerHTML = `
-                    <div class="text-sm text-gray-900">${course.enrolledusercount || 0}</div>`;
-                
-                // Actions
-                const actions = document.createElement('td');
-                actions.className = 'px-6 py-4 whitespace-nowrap text-right text-sm font-medium';
-                actions.innerHTML = `
-                    <a href="${MOODLE_URL}/course/view.php?id=${course.id}" target="_blank" class="text-blue-600 hover:text-blue-900 mr-4">
-                        <i class="fas fa-external-link-alt"></i> View
-                    </a>
-                    <a href="#" class="text-indigo-600 hover:text-indigo-900" onclick="showCourseDetails(${course.id}); return false;">
-                        <i class="fas fa-chart-line"></i> Analytics
-                    </a>`;
-                
-                // Append all cells to the row
-                row.appendChild(courseName);
-                row.appendChild(category);
-                row.appendChild(teacher);
-                row.appendChild(students);
-                row.appendChild(actions);
-                
-                // Add the row to the table
-                tbody.appendChild(row);
-            });
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        ${escapeHtml(course.shortname || '')}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        ${course.teacher ? escapeHtml(course.teacher) : 'No teacher assigned'}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2.5 py-0.5 inline-flex text-xs font-medium rounded-full ${getEnrollmentBadgeClass(course.enrolledusercount || 0)}">
+                            ${course.enrolledusercount || 0} enrolled
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <a href="${MOODLE_URL}/course/view.php?id=${course.id}" target="_blank" class="text-blue-600 hover:text-blue-900">
+                            View <i class="fas fa-external-link-alt ml-1 text-xs"></i>
+                        </a>
+                    </td>
+                </tr>`).join('');
         }
         
         // Function to update stats
@@ -464,16 +466,14 @@ require_once 'api_functions.php';
                 
                 // Show loading state
                 const tbody = document.querySelector('#coursesTable tbody');
-                if (tbody) {
-                    tbody.innerHTML = `
-                        <tr>
-                            <td colspan="5" class="px-6 py-12 text-center text-gray-500">
-                                <div class="flex justify-center">
-                                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                                </div>
-                                <p class="mt-2">Loading short courses...</p>
-                            </td>
-                        </tr>`;
+                const loadingIndicator = document.getElementById('loadingIndicator');
+                const noCoursesMessage = document.getElementById('noCoursesMessage');
+                
+                if (loadingIndicator) {
+                    loadingIndicator.style.display = '';
+                }
+                if (noCoursesMessage) {
+                    noCoursesMessage.classList.add('hidden');
                 }
                 
                 // Build query parameters
@@ -481,12 +481,11 @@ require_once 'api_functions.php';
                     page: currentPage,
                     per_page: rowsPerPage,
                     search: searchQuery,
-                    shortname: 'PDC-' // Filter for PDC courses
+                    shortname: 'PDC-'  // Filter for short courses
                 });
                 
                 if (categoryValue) {
                     params.append('category', categoryValue);
-                    console.log('Added category filter:', categoryValue);
                 }
                 
                 const response = await fetch(`api/get_courses.php?${params.toString()}`);
@@ -500,17 +499,21 @@ require_once 'api_functions.php';
                     if (data.pagination) {
                         renderPagination(data.pagination);
                     }
+                    
+                    // Update stats
+                    updateStats();
                 } else {
-                    throw new Error(data.error || 'Failed to fetch short courses');
+                    throw new Error(data.error || 'Failed to fetch courses');
                 }
             } catch (error) {
-                console.error('Error fetching short courses:', error);
+                console.error('Error fetching courses:', error);
                 const tbody = document.querySelector('#coursesTable tbody');
                 if (tbody) {
                     tbody.innerHTML = `
                         <tr>
-                            <td colspan="5" class="px-6 py-12 text-center text-red-500">
+                            <td colspan="5" class="text-center py-8 text-red-500">
                                 Error loading short courses. Please try again.
+                                <br><small>${error.message || ''}</small>
                             </td>
                         </tr>`;
                 }
