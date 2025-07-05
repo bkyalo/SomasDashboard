@@ -438,13 +438,21 @@ function get_all_courses_with_enrollments() {
                 }
             }
             
+            // Safely get category information with null checks
+            $categoryId = $course['category'] ?? 0;
+            $categoryName = 'Uncategorized';
+            
+            if ($categoryId > 0 && isset($categories[$categoryId])) {
+                $categoryName = $categories[$categoryId];
+            }
+            
             // Add course to result
             $result[] = [
-                'id' => $course['id'],
-                'fullname' => $course['fullname'],
-                'shortname' => $course['shortname'],
-                'categoryid' => $course['category'],
-                'categoryname' => $categories[$course['category']] ?? 'Uncategorized',
+                'id' => $course['id'] ?? 0,
+                'fullname' => $course['fullname'] ?? 'Untitled Course',
+                'shortname' => $course['shortname'] ?? '',
+                'categoryid' => $categoryId,
+                'categoryname' => $categoryName,
                 'enrolledusercount' => $student_count,
                 'teacher' => !empty($teachers) ? $teachers[0] : null,
                 'teacher_count' => count($teachers),

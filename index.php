@@ -18,77 +18,12 @@ $stats = get_site_statistics();
 <body class="bg-gray-100">
     <div class="flex h-screen">
         <!-- Sidebar -->
-        <div class="bg-blue-800 text-white w-64 px-4 py-6">
-            <div class="flex items-center justify-center mb-8">
-                <i class="fas fa-graduation-cap text-3xl mr-2"></i>
-                <h1 class="text-2xl font-bold">Moodle Analytics</h1>
-            </div>
-            <nav>
-                <a href="#" class="flex items-center px-4 py-3 text-white bg-blue-900 rounded-lg mb-2">
-                    <i class="fas fa-tachometer-alt mr-3"></i>
-                    Dashboard
-                </a>
-                <a href="#" class="flex items-center px-4 py-3 text-blue-200 hover:bg-blue-700 rounded-lg mb-2">
-                    <i class="fas fa-users mr-3"></i>
-                    Users
-                </a>
-                <a href="#" class="flex items-center px-4 py-3 text-blue-200 hover:bg-blue-700 rounded-lg mb-2">
-                    <i class="fas fa-book mr-3"></i>
-                    Courses
-                </a>
-                <a href="#" class="flex items-center px-4 py-3 text-blue-200 hover:bg-blue-700 rounded-lg mb-2">
-                    <i class="fas fa-chart-bar mr-3"></i>
-                    Reports
-                </a>
-            </nav>
-        </div>
+        <?php include 'includes/sidebar.php'; ?>
 
         <!-- Main Content -->
         <div class="flex-1 overflow-y-auto">
-                <!-- Top Navigation -->
-                <header class="bg-white shadow-sm">
-                    <div class="flex justify-between items-center px-6 py-3">
-                        <div class="flex items-center space-x-6">
-                            <h2 class="text-xl font-semibold text-gray-800">Dashboard</h2>
-                            <nav class="hidden md:flex space-x-1">
-                                <a href="index.php" class="px-3 py-2 text-sm font-medium rounded-md <?php echo basename($_SERVER['PHP_SELF']) === 'index.php' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-100'; ?>">
-                                    Overview
-                                </a>
-                                <a href="courses.php" class="px-3 py-2 text-sm font-medium rounded-md <?php echo basename($_SERVER['PHP_SELF']) === 'courses.php' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-100'; ?>">
-                                    Courses
-                                </a>
-                                <a href="#" class="px-3 py-2 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-100">
-                                    Users
-                                </a>
-                                <a href="#" class="px-3 py-2 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-100">
-                                    Reports
-                                </a>
-                            </nav>
-                        </div>
-                        <div class="flex items-center space-x-4">
-                            <div class="relative hidden md:block">
-                                <input type="text" placeholder="Search..." class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm w-64" id="globalSearch">
-                                <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
-                            </div>
-                            <button class="p-2 text-gray-500 hover:text-blue-600 rounded-full hover:bg-gray-100 relative">
-                                <i class="fas fa-bell"></i>
-                                <span class="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500"></span>
-                            </button>
-                            <div class="h-8 w-px bg-gray-200"></div>
-                            <div class="flex items-center">
-                                <div class="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-semibold">
-                                    <?php echo isset($_SESSION['user_name']) ? substr(trim($_SESSION['user_name']), 0, 1) : 'U'; ?>
-                                </div>
-                                <span class="ml-2 text-sm font-medium text-gray-700 hidden md:inline">
-                                    <?php echo isset($_SESSION['user_name']) ? htmlspecialchars(explode(' ', $_SESSION['user_name'])[0]) : 'User'; ?>
-                                </span>
-                                <button class="ml-1 text-gray-500 hover:text-gray-700">
-                                    <i class="fas fa-chevron-down text-xs"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </header>
+            <div class="p-6">
+                <h1 class="text-2xl font-bold text-gray-800 mb-6">Dashboard</h1>
 
             <!-- Dashboard Content -->
             <main class="p-6">

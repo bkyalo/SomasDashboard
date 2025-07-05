@@ -49,30 +49,26 @@ require_once 'api_functions.php';
         
         <!-- Main Content -->
         <div class="flex-1 overflow-y-auto">
-            <!-- Top Navigation -->
-            <header class="bg-white shadow-sm">
-                <div class="flex justify-between items-center px-6 py-4">
-                    <h2 class="text-xl font-semibold text-gray-800">All Courses</h2>
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h1 class="text-2xl font-bold text-gray-800">All Courses</h1>
                     <div class="flex items-center space-x-4">
-                        <div class="relative flex-1 max-w-md">
-                            <input type="text" id="searchInput" placeholder="Search by course name, code, or teacher..." 
-                                class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <div class="relative">
+                            <input type="text" id="searchInput" placeholder="Search courses..." 
+                                class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm w-64">
                             <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
                         </div>
-                        <div class="flex items-center space-x-2">
-                            <select id="rowsPerPage" class="text-sm border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                                <option value="10">10 per page</option>
-                                <option value="25">25 per page</option>
-                                <option value="50">50 per page</option>
-                                <option value="100">100 per page</option>
-                            </select>
-                            <button id="refreshButton" class="p-2 text-gray-500 hover:text-blue-600 rounded-full hover:bg-gray-100">
-                                <i class="fas fa-sync-alt"></i>
-                            </button>
-                        </div>
+                        <select id="rowsPerPage" class="text-sm border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                            <option value="10">10 per page</option>
+                            <option value="25">25 per page</option>
+                            <option value="50">50 per page</option>
+                            <option value="100">100 per page</option>
+                        </select>
+                        <button id="refreshButton" class="p-2 text-gray-500 hover:text-blue-600 rounded-full hover:bg-gray-100">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
                     </div>
                 </div>
-            </header>
 
             <!-- Main Content -->
             <main class="p-6">
