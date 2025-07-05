@@ -116,6 +116,68 @@ function call_moodle_api($functionname, $params = []) {
 }
 
 /**
+ * Get top enrolled courses with their details
+ * @param int $limit Number of courses to return
+ * @return array Array of courses with their details
+ */
+function get_top_enrolled_courses($limit = 5) {
+    try {
+        error_log("Getting top $limit enrolled courses...");
+        
+        // First, get all courses with their enrollment counts
+        $courses = call_moodle_api('core_course_get_courses', [
+            'options' => [
+                ['name' => 'sortby', 'value' => 'enrolledusercount'],
+                ['name' => 'sortorder', 'value' => 'DESC'],
+                ['name' => 'limit', 'value' => $limit]
+            ]
+        ]);
+        
+        if (isset($courses['error'])) {
+            error_log("Error getting courses: " . $courses['error']);
+            return ['error' => $courses['error']];
+        }
+        
+        // Get all categories in one go
+        $categories_result = call_moodle_api('core_course_get_categories', []);
+        $categories = [];
+        if (!isset($categories_result['error'])) {
+            foreach ($categories_result as $category) {
+                $categories[$category['id']] = $category['name'];
+            }
+        }
+        
+        // Process the courses
+        $result = [];
+        foreach ($courses as $course) {
+            if (!is_array($course) || empty($course['id'])) continue;
+            
+            $result[] = [
+                'id' => $course['id'],
+                'fullname' => $course['fullname'] ?? 'Unnamed Course',
+                'shortname' => $course['shortname'] ?? '',
+                'enrolledusercount' => $course['enrolledusercount'] ?? 0,
+                'categoryid' => $course['category'] ?? 0,
+                'categoryname' => $categories[$course['category']] ?? 'Uncategorized',
+                'courseimage' => $course['courseimage'] ?? 'https://via.placeholder.com/400x200?text=No+Image'
+            ];
+        }
+        
+        // Sort by enrolled user count in descending order
+        usort($result, function($a, $b) {
+            return $b['enrolledusercount'] - $a['enrolledusercount'];
+        });
+        
+        // Return only the top $limit courses
+        return array_slice($result, 0, $limit);
+        
+    } catch (Exception $e) {
+        error_log("Exception in get_top_enrolled_courses: " . $e->getMessage());
+        return ['error' => $e->getMessage()];
+    }
+}
+
+/**
  * Get site statistics
  */
 function get_site_statistics() {

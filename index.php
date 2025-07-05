@@ -69,68 +69,26 @@ $stats = get_site_statistics();
             <main class="p-6">
                 <!-- Stats Cards -->
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                    <!-- Total Users Card -->
-                    <div class="bg-white rounded-xl shadow-md overflow-hidden">
-                        <div class="p-6">
-                            <div class="flex items-center">
-                                <div class="p-3 rounded-full bg-blue-100 text-blue-600 mr-4">
-                                    <i class="fas fa-users text-xl"></i>
-                                </div>
-                                <div>
-                                    <p class="text-gray-500 text-sm">Total Users</p>
-                                    <div class="stat-value">
-                                        <?php 
-                                        if (is_numeric($stats['total_users'])) {
-                                            echo number_format((float)$stats['total_users']);
-                                        } else {
-                                            echo htmlspecialchars($stats['total_users']);
-                                        }
-                                        ?>
-                                    </div>
-                                </div>
+                    <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-6 shadow-lg transform transition-all hover:scale-105 hover:shadow-xl">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-blue-100 text-sm font-medium">Total Users</p>
+                                <h3 class="text-3xl font-bold text-white"><?php echo is_numeric($stats['total_users']) ? number_format($stats['total_users']) : $stats['total_users']; ?></h3>
                             </div>
+                            <div class="bg-blue-400 bg-opacity-20 p-3 rounded-full">
+                                <i class="fas fa-users text-white text-xl"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <span class="text-blue-100 text-sm"><i class="fas fa-arrow-up mr-1"></i> 12% from last month</span>
                         </div>
                     </div>
 
-                    <!-- Total Courses Card -->
-                    <div class="bg-white rounded-xl shadow-md overflow-hidden">
-                        <div class="p-6">
-                            <div class="flex items-center">
-                                <div class="p-3 rounded-full bg-green-100 text-green-600 mr-4">
-                                    <i class="fas fa-book text-xl"></i>
-                                </div>
-                                <div>
-                                    <p class="text-gray-500 text-sm">Total Courses</p>
-                                    <h3 class="text-2xl font-bold text-gray-800"><?php echo number_format($stats['total_courses'] ?? 0); ?></h3>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Categories Card -->
-                    <div class="bg-white rounded-xl shadow-md overflow-hidden">
-                        <div class="p-6">
-                            <div class="flex items-center">
-                                <div class="p-3 rounded-full bg-yellow-100 text-yellow-600 mr-4">
-                                    <i class="fas fa-folder text-xl"></i>
-                                </div>
-                                <div>
-                                    <p class="text-gray-500 text-sm">Categories</p>
-                                    <h3 class="text-2xl font-bold text-gray-800"><?php echo number_format($stats['total_categories'] ?? 0); ?></h3>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Active Users Card -->
-                    <div class="bg-white rounded-xl shadow-md overflow-hidden">
-                        <div class="p-6">
-                            <div class="flex items-center">
-                                <div class="p-3 rounded-full bg-purple-100 text-purple-600 mr-4">
-                                    <i class="fas fa-user-clock text-xl"></i>
-                                </div>
-                                <div>
-                                    <p class="text-gray-500 text-sm">Active Users (60m)</p>
+                    <div class="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-6 shadow-lg transform transition-all hover:scale-105 hover:shadow-xl">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-green-100 text-sm font-medium">Active Users (1h)</p>
+                                <h3 class="text-3xl font-bold text-white"><?php echo is_numeric($stats['active_users']) ? number_format($stats['active_users']) : $stats['active_users']; ?></h3>
                                     <div class="stat-value">
                                         <?php 
                                         if (is_numeric($stats['active_users'])) {
@@ -196,6 +154,82 @@ $stats = get_site_statistics();
                             </div>
                         </div>
                     </div>
+                </div>
+
+                <!-- Top Enrolled Courses Section -->
+                <div class="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl p-6 shadow-2xl mb-8 border border-gray-700 transform transition-all hover:shadow-purple-500/20 hover:border-purple-500/50">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold text-white flex items-center">
+                            <span class="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-500">Top Enrolled Courses</span>
+                            <span class="ml-3 px-3 py-1 bg-purple-900 bg-opacity-50 text-purple-300 text-xs font-semibold rounded-full">HOT</span>
+                        </h2>
+                        <div class="flex space-x-2">
+                            <button class="p-2 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white transition-colors">
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <button class="p-2 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white transition-colors">
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+                        <?php if (!empty($stats['top_courses'])): ?>
+                            <?php foreach ($stats['top_courses'] as $index => $course): ?>
+                                <div class="group relative bg-gray-800 rounded-xl p-5 hover:bg-gray-750 transition-all duration-300 transform hover:-translate-y-1 hover:shadow-lg hover:shadow-purple-500/10 border border-gray-700 overflow-hidden">
+                                    <!-- Glow Effect -->
+                                    <div class="absolute -inset-0.5 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl opacity-0 group-hover:opacity-30 blur transition duration-500"></div>
+                                    
+                                    <!-- Course Image -->
+                                    <div class="relative h-32 mb-4 rounded-lg overflow-hidden">
+                                        <img src="<?php echo htmlspecialchars($course['courseimage']); ?>" alt="<?php echo htmlspecialchars($course['fullname']); ?>" class="w-full h-full object-cover">
+                                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+                                        <div class="absolute bottom-2 right-2 bg-purple-600 text-white text-xs font-bold px-2 py-1 rounded-full">
+                                            #<?php echo $index + 1; ?>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Course Info -->
+                                    <h3 class="text-white font-semibold mb-1 truncate" title="<?php echo htmlspecialchars($course['fullname']); ?>">
+                                        <?php echo htmlspecialchars($course['fullname']); ?>
+                                    </h3>
+                                    <p class="text-gray-400 text-sm mb-3 truncate" title="<?php echo htmlspecialchars($course['categoryname']); ?>">
+                                        <i class="fas fa-tag mr-1 text-purple-400"></i> <?php echo htmlspecialchars($course['categoryname']); ?>
+                                    </p>
+                                    
+                                    <!-- Enrolled Users -->
+                                    <div class="flex items-center justify-between mt-4 pt-3 border-t border-gray-700">
+                                        <div class="flex items-center">
+                                            <i class="fas fa-users text-purple-400 mr-2"></i>
+                                            <span class="text-sm text-gray-300"><?php echo number_format($course['enrolledusercount']); ?> students</span>
+                                        </div>
+                                        <a href="#" class="text-purple-400 hover:text-purple-300 transition-colors">
+                                            <i class="fas fa-arrow-right"></i>
+                                        </a>
+                                    </div>
+                                    
+                                    <!-- Animated Border -->
+                                    <div class="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 to-pink-500 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-500"></div>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <div class="col-span-5 text-center py-10">
+                                <div class="text-gray-400 mb-2">
+                                    <i class="fas fa-book-open text-4xl opacity-50"></i>
+                                </div>
+                                <p class="text-gray-400">No course data available</p>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                    
+                    <?php if (!empty($stats['top_courses'])): ?>
+                    <div class="mt-6 text-center">
+                        <a href="#" class="inline-flex items-center px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors">
+                            View All Courses
+                            <i class="fas fa-arrow-right ml-2"></i>
+                        </a>
+                    </div>
+                    <?php endif; ?>
                 </div>
             </main>
         </div>

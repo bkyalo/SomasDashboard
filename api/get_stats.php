@@ -26,19 +26,36 @@ try {
     // Get site statistics
     $stats = get_site_statistics();
     
-    // Add debug info
-    $response['debug']['raw_stats'] = $stats;
-    $response['debug']['config'] = array(
-        'api_url' => MOODLE_API_URL,
-        'token_set' => !empty(MOODLE_API_TOKEN) ? 'Yes' : 'No'
-    );
+    // Get top enrolled courses
+    $top_courses = get_top_enrolled_courses(5);
+    if (isset($top_courses['error'])) {
+        error_log("Error getting top courses: " . $top_courses['error']);
+        $top_courses = [];
+    }
+
+    // Prepare response
+    $response = [
+        'success' => true,
+        'data' => [
+            'total_users' => $stats['total_users'],
+            'active_users' => $stats['active_users'],
+            'total_courses' => $stats['total_courses'],
+            'total_categories' => $stats['total_categories'],
+            'top_courses' => $top_courses
+        ],
+        'timestamp' => date('Y-m-d H:i:s'),
+        'debug' => [
+            'raw_stats' => $stats,
+            'config' => [
+                'api_url' => MOODLE_API_URL,
+                'token_set' => !empty(MOODLE_API_TOKEN) ? 'Yes' : 'No'
+            ]
+        ]
+    ];
     
     if (isset($stats['error'])) {
         throw new Exception($stats['error']);
     }
-    
-    // Add stats to response
-    $response['data'] = $stats;
     $response['message'] = 'Data retrieved successfully';
     
     // Add sample recent activity (in a real app, this would come from Moodle logs)
