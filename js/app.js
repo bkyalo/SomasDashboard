@@ -159,6 +159,11 @@ function updateDashboard(data) {
     if (data.recent_activity && Array.isArray(data.recent_activity)) {
         updateRecentActivity(data.recent_activity);
     }
+    
+    // Update top enrolled courses if data is available
+    if (data.top_courses && Array.isArray(data.top_courses)) {
+        updateTopCourses(data.top_courses);
+    }
 }
 
 /**
@@ -344,6 +349,91 @@ function getNotificationIcon(type) {
     };
     
     return icons[type] || icons['default'];
+}
+
+/**
+ * Update the top enrolled courses section
+ * @param {Array} courses - Array of course objects
+ */
+function updateTopCourses(courses) {
+    const container = document.querySelector('.top-courses-container');
+    if (!container) return;
+    
+    // Clear existing content
+    container.innerHTML = '';
+    
+    if (courses.length === 0) {
+        container.innerHTML = `
+            <div class="col-span-full text-center py-8">
+                <p class="text-gray-400">No enrolled courses found</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Create and append course cards
+    courses.forEach((course, index) => {
+        const courseElement = document.createElement('div');
+        courseElement.className = 'group relative bg-gray-800 rounded-xl p-5 hover:bg-gray-750 transition-all duration-300 transform hover:-translate-y-1 hover:shadow-lg hover:shadow-purple-500/10 border border-gray-700 overflow-hidden';
+        
+        // Add glow effect for top 3 courses
+        if (index < 3) {
+            const glowColors = [
+                'from-purple-500 to-pink-500',
+                'from-blue-400 to-cyan-400',
+                'from-amber-400 to-orange-500'
+            ];
+            courseElement.innerHTML += `
+                <div class="absolute -inset-0.5 bg-gradient-to-r ${glowColors[index]} rounded-xl opacity-0 group-hover:opacity-30 blur transition duration-1000 group-hover:duration-200"></div>
+            `;
+        }
+        
+        // Course content
+        courseElement.innerHTML += `
+            <div class="relative z-10">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="px-2 py-1 text-xs font-medium rounded-full ${getRandomBadgeColor()}">
+                        ${course.categoryname || 'Uncategorized'}
+                    </span>
+                    <span class="text-xs text-gray-400">
+                        <i class="fas fa-users mr-1"></i> ${course.enrolledusercount || 0}
+                    </span>
+                </div>
+                <h3 class="font-bold text-white mb-2 line-clamp-2" title="${course.fullname || 'Unnamed Course'}">
+                    ${course.fullname || 'Unnamed Course'}
+                </h3>
+                <p class="text-sm text-gray-400 line-clamp-2 mb-4">
+                    ${course.summary || 'No description available'}
+                </p>
+                <div class="flex justify-between items-center">
+                    <span class="text-xs text-gray-500">
+                        ID: ${course.id}
+                    </span>
+                    <a href="#" class="text-purple-400 hover:text-purple-300 text-sm font-medium transition-colors">
+                        View <i class="fas fa-arrow-right ml-1"></i>
+                    </a>
+                </div>
+            </div>
+        `;
+        
+        container.appendChild(courseElement);
+    });
+}
+
+/**
+ * Generate a random badge color class
+ * @returns {string} Tailwind CSS class for badge color
+ */
+function getRandomBadgeColor() {
+    const colors = [
+        'bg-purple-900 bg-opacity-50 text-purple-300',
+        'bg-blue-900 bg-opacity-50 text-blue-300',
+        'bg-green-900 bg-opacity-50 text-green-300',
+        'bg-amber-900 bg-opacity-50 text-amber-300',
+        'bg-pink-900 bg-opacity-50 text-pink-300',
+        'bg-cyan-900 bg-opacity-50 text-cyan-300'
+    ];
+    return colors[Math.floor(Math.random() * colors.length)];
 }
 
 // Make showNotification available globally

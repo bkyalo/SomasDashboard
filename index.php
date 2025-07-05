@@ -89,7 +89,7 @@ $stats = get_site_statistics();
                             </div>
                         </div>
                         <div class="mt-4">
-                            <span class="text-blue-100 text-sm"><i class="fas fa-arrow-up mr-1"></i> 12% from last month</span>
+                            <span class="text-orange-100 text-sm"><i class="fas fa-arrow-up mr-1"></i> 12% from last month</span>
                         </div>
                     </div>
 
@@ -142,10 +142,10 @@ $stats = get_site_statistics();
                     </div>
 
                     <!-- Categories Card -->
-                    <div class="bg-gradient-to-r from-amber-500 to-amber-600 rounded-xl p-6 shadow-lg transform transition-all hover:scale-105 hover:shadow-xl">
+                    <div class="bg-gradient-to-r from-orange-500 to-amber-500 rounded-xl p-6 shadow-lg transform transition-all hover:scale-105 hover:shadow-xl hover:shadow-orange-500/30">
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-amber-100 text-sm font-medium">Categories</p>
+                                <p class="text-orange-100 text-sm font-medium">Categories</p>
                                 <h3 class="text-3xl font-bold text-white">
                                     <?php 
                                     if (is_numeric($stats['total_categories'])) {
@@ -156,12 +156,12 @@ $stats = get_site_statistics();
                                     ?>
                                 </h3>
                             </div>
-                            <div class="bg-amber-400 bg-opacity-20 p-3 rounded-full">
+                            <div class="bg-orange-400 bg-opacity-30 p-3 rounded-full">
                                 <i class="fas fa-tags text-white text-xl"></i>
                             </div>
                         </div>
                         <div class="mt-4">
-                            <span class="text-amber-100 text-sm"><i class="fas fa-layer-group mr-1"></i> Organized content</span>
+                            <span class="text-orange-100 text-sm"><i class="fas fa-layer-group mr-1"></i> Organized content</span>
                         </div>
                     </div>
                 </div>
@@ -225,73 +225,22 @@ $stats = get_site_statistics();
                             <span class="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-500">Top Enrolled Courses</span>
                             <span class="ml-3 px-3 py-1 bg-purple-900 bg-opacity-50 text-purple-300 text-xs font-semibold rounded-full">HOT</span>
                         </h2>
-                        <div class="flex space-x-2">
-                            <button class="p-2 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white transition-colors">
-                                <i class="fas fa-chevron-left"></i>
-                            </button>
-                            <button class="p-2 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white transition-colors">
-                                <i class="fas fa-chevron-right"></i>
-                            </button>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 top-courses-container">
+                        <!-- Loading spinner will be shown initially -->
+                        <div class="col-span-full text-center py-8">
+                            <div class="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-purple-500 mb-2"></div>
+                            <p class="text-gray-400">Loading courses...</p>
                         </div>
                     </div>
                     
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-                        <?php if (!empty($stats['top_courses'])): ?>
-                            <?php foreach ($stats['top_courses'] as $index => $course): ?>
-                                <div class="group relative bg-gray-800 rounded-xl p-5 hover:bg-gray-750 transition-all duration-300 transform hover:-translate-y-1 hover:shadow-lg hover:shadow-purple-500/10 border border-gray-700 overflow-hidden">
-                                    <!-- Glow Effect -->
-                                    <div class="absolute -inset-0.5 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl opacity-0 group-hover:opacity-30 blur transition duration-500"></div>
-                                    
-                                    <!-- Course Image -->
-                                    <div class="relative h-32 mb-4 rounded-lg overflow-hidden">
-                                        <img src="<?php echo htmlspecialchars($course['courseimage']); ?>" alt="<?php echo htmlspecialchars($course['fullname']); ?>" class="w-full h-full object-cover">
-                                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
-                                        <div class="absolute bottom-2 right-2 bg-purple-600 text-white text-xs font-bold px-2 py-1 rounded-full">
-                                            #<?php echo $index + 1; ?>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Course Info -->
-                                    <h3 class="text-white font-semibold mb-1 truncate" title="<?php echo htmlspecialchars($course['fullname']); ?>">
-                                        <?php echo htmlspecialchars($course['fullname']); ?>
-                                    </h3>
-                                    <p class="text-gray-400 text-sm mb-3 truncate" title="<?php echo htmlspecialchars($course['categoryname']); ?>">
-                                        <i class="fas fa-tag mr-1 text-purple-400"></i> <?php echo htmlspecialchars($course['categoryname']); ?>
-                                    </p>
-                                    
-                                    <!-- Enrolled Users -->
-                                    <div class="flex items-center justify-between mt-4 pt-3 border-t border-gray-700">
-                                        <div class="flex items-center">
-                                            <i class="fas fa-users text-purple-400 mr-2"></i>
-                                            <span class="text-sm text-gray-300"><?php echo number_format($course['enrolledusercount']); ?> students</span>
-                                        </div>
-                                        <a href="#" class="text-purple-400 hover:text-purple-300 transition-colors">
-                                            <i class="fas fa-arrow-right"></i>
-                                        </a>
-                                    </div>
-                                    
-                                    <!-- Animated Border -->
-                                    <div class="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 to-pink-500 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-500"></div>
-                                </div>
-                            <?php endforeach; ?>
-                        <?php else: ?>
-                            <div class="col-span-5 text-center py-10">
-                                <div class="text-gray-400 mb-2">
-                                    <i class="fas fa-book-open text-4xl opacity-50"></i>
-                                </div>
-                                <p class="text-gray-400">No course data available</p>
-                            </div>
-                        <?php endif; ?>
-                    </div>
-                    
-                    <?php if (!empty($stats['top_courses'])): ?>
                     <div class="mt-6 text-center">
                         <a href="#" class="inline-flex items-center px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors">
                             View All Courses
                             <i class="fas fa-arrow-right ml-2"></i>
                         </a>
                     </div>
-                    <?php endif; ?>
                 </div>
             </main>
         </div>

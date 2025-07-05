@@ -157,29 +157,40 @@ function get_top_enrolled_courses($limit = 5) {
         // Process the courses
         $result = [];
         foreach ($courses as $course) {
-            if (!is_array($course) || empty($course['id'])) continue;
+            // Skip if invalid course or course ID is 1
+            if (!is_array($course) || empty($course['id']) || $course['id'] == 1) {
+                continue;
+            }
             
-            // Get enrollment count for this course
-            $enrolled_users = call_moodle_api('core_enrol_get_enrolled_users', [
-                'courseid' => $course['id']
-            ]);
-            
-            $enrolled_count = is_array($enrolled_users) ? count($enrolled_users) : 0;
-            
-            // Get category name from pre-fetched categories
-            $category_id = $course['category'] ?? 0;
-            $category_name = $categories[$category_id] ?? 'Uncategorized';
-            
-            $result[] = [
-                'id' => $course['id'],
-                'fullname' => $course['fullname'] ?? 'Unnamed Course',
-                'shortname' => $course['shortname'] ?? '',
-                'enrolledusercount' => $enrolled_count,
-                'categoryid' => $category_id,
-                'categoryname' => $category_name,
-                'courseimage' => $course['courseimage'] ?? 'https://via.placeholder.com/400x200?text=No+Image',
-                'summary' => $course['summary'] ?? ''
-            ];
+            try {
+                // Get enrollment count for this course
+                $enrolled_users = call_moodle_api('core_enrol_get_enrolled_users', [
+                    'courseid' => $course['id']
+                ]);
+                
+                $enrolled_count = is_array($enrolled_users) ? count($enrolled_users) : 0;
+                
+                // Get category name from pre-fetched categories
+                $category_id = $course['category'] ?? 0;
+                $category_name = $categories[$category_id] ?? 'Uncategorized';
+                
+                $result[] = [
+                    'id' => $course['id'],
+                    'fullname' => $course['fullname'] ?? 'Unnamed Course',
+                    'shortname' => $course['shortname'] ?? '',
+                    'enrolledusercount' => $enrolled_count,
+                    'categoryid' => $category_id,
+                    'categoryname' => $category_name,
+                    'courseimage' => $course['courseimage'] ?? 'https://via.placeholder.com/400x200?text=No+Image',
+                    'summary' => $course['summary'] ?? ''
+                ];
+                
+                error_log("Added course ID: " . $course['id'] . " with " . $enrolled_count . " enrolled users");
+                
+            } catch (Exception $e) {
+                error_log("Error processing course ID " . ($course['id'] ?? 'unknown') . ": " . $e->getMessage());
+                continue;
+            }
         }
         
         // Sort by enrolled user count in descending order
