@@ -31,6 +31,24 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 </a>
             </li>
             <li>
+                <a href="short_courses.php" class="flex items-center px-4 py-3 rounded-lg transition-colors <?php echo $current_page === 'short_courses.php' ? 'bg-blue-700 text-white' : 'text-blue-100 hover:bg-blue-700/50'; ?>">
+                    <i class="fas fa-certificate w-6 text-center mr-3"></i>
+                    <span>Short Courses</span>
+                    <span class="ml-auto bg-blue-600 text-white text-xs font-semibold px-2 py-1 rounded-full">
+                        <?php 
+                        if (!function_exists('get_all_courses_with_enrollments')) {
+                            require_once __DIR__ . '/../api_functions.php';
+                        }
+                        $all_courses = get_all_courses_with_enrollments();
+                        $pdc_courses = is_array($all_courses) ? array_filter($all_courses, function($course) {
+                            return isset($course['shortname']) && stripos($course['shortname'], 'PDC-') === 0;
+                        }) : [];
+                        echo is_array($pdc_courses) ? count($pdc_courses) : '0';
+                        ?>
+                    </span>
+                </a>
+            </li>
+            <li>
                 <a href="#" class="flex items-center px-4 py-3 rounded-lg transition-colors text-blue-100 hover:bg-blue-700/50">
                     <i class="fas fa-users w-6 text-center mr-3"></i>
                     <span>Users</span>

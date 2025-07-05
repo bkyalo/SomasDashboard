@@ -19,6 +19,7 @@ try {
     // Get query parameters
     $search = isset($_GET['search']) ? trim($_GET['search']) : '';
     $categoryId = isset($_GET['category']) ? (int)$_GET['category'] : 0;
+    $shortnameFilter = isset($_GET['shortname']) ? trim($_GET['shortname']) : '';
     $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
     $perPage = isset($_GET['per_page']) ? (int)$_GET['per_page'] : 10;
     
@@ -29,7 +30,7 @@ try {
     error_log('Filtering courses - Search: ' . $search . ', Category ID: ' . $categoryId);
     
     // Apply filters
-    $allCourses = array_filter($allCourses, function($course) use ($search, $categoryId) {
+    $allCourses = array_filter($allCourses, function($course) use ($search, $categoryId, $shortnameFilter) {
         $matches = true;
         
         // Apply search filter
@@ -41,6 +42,19 @@ try {
                 (isset($course['categoryname']) && strpos(strtolower($course['categoryname']), $search) !== false) ||
                 (isset($course['teacher']) && $course['teacher'] && strpos(strtolower($course['teacher']), $search) !== false)
             );
+        }
+        
+        // Apply shortname filter (for PDC courses)
+        if (!empty($shortnameFilter)) {
+            $matches = $matches && (
+                isset($course['shortname']) && 
+                stripos($course['shortname'], $shortnameFilter) === 0
+            );
+            
+            // Debug log for shortname filtering
+            if ($matches) {
+                error_log('Course matches shortname filter: ' . ($course['shortname'] ?? 'N/A'));
+            }
         }
         
         // Apply category filter
