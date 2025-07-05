@@ -109,6 +109,8 @@ function initCharts() {
  * Load dashboard data from the server
  */
 function loadDashboardData() {
+    console.log('Loading dashboard data...');
+    
     // Show loading state
     const statsCards = document.querySelectorAll('.stats-card');
     statsCards.forEach(card => {
@@ -118,29 +120,59 @@ function loadDashboardData() {
         }
     });
     
+    // Show loading state for top courses
+    const topCoursesContainer = document.querySelector('.top-courses-container');
+    if (topCoursesContainer) {
+        topCoursesContainer.innerHTML = `
+            <div class="col-span-full text-center py-8">
+                <div class="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-purple-500 mb-2"></div>
+                <p class="text-gray-400">Loading courses...</p>
+            </div>
+        `;
+    }
+    
     // Fetch data from the server
     fetch('api/get_stats.php')
         .then(response => {
+            console.log('API response status:', response.status);
             if (!response.ok) {
-                throw new Error('Network response was not ok');
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
-            return response.json();
+            return response.json().catch(e => {
+                console.error('Error parsing JSON:', e);
+                throw new Error('Invalid JSON response from server');
+            });
         })
         .then(data => {
+            console.log('API response data:', data);
             // Update the UI with the received data
             updateDashboard(data);
         })
         .catch(error => {
             console.error('Error loading dashboard data:', error);
-            showNotification('Error loading dashboard data. Please try again later.', 'error');
+            showNotification(`Error loading dashboard data: ${error.message}`, 'error');
             
             // Set default values in case of error
             updateDashboard({
                 total_users: 0,
                 total_courses: 0,
                 total_categories: 0,
-                active_users: 0
+                active_users: 0,
+                top_courses: []
             });
+            
+            // Show error in the top courses container
+            if (topCoursesContainer) {
+                topCoursesContainer.innerHTML = `
+                    <div class="col-span-full text-center py-8">
+                        <div class="text-red-500 mb-2">
+                            <i class="fas fa-exclamation-triangle text-2xl"></i>
+                        </div>
+                        <p class="text-red-400">Failed to load courses</p>
+                        <p class="text-sm text-gray-500 mt-1">${error.message}</p>
+                    </div>
+                `;
+            }
         });
 }
 
@@ -149,6 +181,8 @@ function loadDashboardData() {
  * @param {Object} data - The data to update the dashboard with
  */
 function updateDashboard(data) {
+    console.log('Updating dashboard with data:', data);
+    
     // Update stats cards
     updateStatCard('total-users', data.total_users || 0);
     updateStatCard('total-courses', data.total_courses || 0);
@@ -161,8 +195,12 @@ function updateDashboard(data) {
     }
     
     // Update top enrolled courses if data is available
+    console.log('Top courses data:', data.top_courses);
     if (data.top_courses && Array.isArray(data.top_courses)) {
+        console.log(`Updating ${data.top_courses.length} top courses`);
         updateTopCourses(data.top_courses);
+    } else {
+        console.error('No top courses data found or invalid format:', data.top_courses);
     }
 }
 

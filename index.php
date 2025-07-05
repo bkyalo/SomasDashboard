@@ -142,26 +142,31 @@ $stats = get_site_statistics();
                     </div>
 
                     <!-- Categories Card -->
-                    <div class="bg-gradient-to-r from-orange-500 to-amber-500 rounded-xl p-6 shadow-lg transform transition-all hover:scale-105 hover:shadow-xl hover:shadow-orange-500/30">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-orange-100 text-sm font-medium">Categories</p>
-                                <h3 class="text-3xl font-bold text-white">
-                                    <?php 
-                                    if (is_numeric($stats['total_categories'])) {
-                                        echo number_format((float)$stats['total_categories']);
-                                    } else {
-                                        echo htmlspecialchars($stats['total_categories']);
-                                    }
-                                    ?>
-                                </h3>
+                    <div class="bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl p-6 shadow-lg transform transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-amber-500/40 group">
+                        <div class="absolute inset-0 bg-gradient-to-br from-amber-400 to-orange-500 opacity-0 group-hover:opacity-30 rounded-xl transition-opacity duration-300"></div>
+                        <div class="relative z-10">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-amber-100 text-sm font-medium mb-1">Categories</p>
+                                    <h3 class="text-3xl font-bold text-white">
+                                        <?php 
+                                        if (is_numeric($stats['total_categories'])) {
+                                            echo number_format((float)$stats['total_categories']);
+                                        } else {
+                                            echo htmlspecialchars($stats['total_categories']);
+                                        }
+                                        ?>
+                                    </h3>
+                                </div>
+                                <div class="bg-amber-400 bg-opacity-30 p-3 rounded-full backdrop-blur-sm group-hover:bg-opacity-40 transition-all duration-300">
+                                    <i class="fas fa-tags text-white text-xl group-hover:scale-110 transition-transform"></i>
+                                </div>
                             </div>
-                            <div class="bg-orange-400 bg-opacity-30 p-3 rounded-full">
-                                <i class="fas fa-tags text-white text-xl"></i>
+                            <div class="mt-4 flex items-center">
+                                <span class="text-amber-100 text-sm bg-amber-500/20 px-2 py-1 rounded-full">
+                                    <i class="fas fa-layer-group mr-1"></i> Organized content
+                                </span>
                             </div>
-                        </div>
-                        <div class="mt-4">
-                            <span class="text-orange-100 text-sm"><i class="fas fa-layer-group mr-1"></i> Organized content</span>
                         </div>
                     </div>
                 </div>
