@@ -69,11 +69,20 @@ $stats = get_site_statistics();
             <main class="p-6">
                 <!-- Stats Cards -->
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <!-- Total Users Card -->
                     <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-6 shadow-lg transform transition-all hover:scale-105 hover:shadow-xl">
                         <div class="flex items-center justify-between">
                             <div>
                                 <p class="text-blue-100 text-sm font-medium">Total Users</p>
-                                <h3 class="text-3xl font-bold text-white"><?php echo is_numeric($stats['total_users']) ? number_format($stats['total_users']) : $stats['total_users']; ?></h3>
+                                <h3 class="text-3xl font-bold text-white">
+                                    <?php 
+                                    if (is_numeric($stats['total_users'])) {
+                                        echo number_format((float)$stats['total_users']);
+                                    } else {
+                                        echo htmlspecialchars($stats['total_users']);
+                                    }
+                                    ?>
+                                </h3>
                             </div>
                             <div class="bg-blue-400 bg-opacity-20 p-3 rounded-full">
                                 <i class="fas fa-users text-white text-xl"></i>
@@ -84,22 +93,75 @@ $stats = get_site_statistics();
                         </div>
                     </div>
 
+                    <!-- Active Users Card -->
                     <div class="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-6 shadow-lg transform transition-all hover:scale-105 hover:shadow-xl">
                         <div class="flex items-center justify-between">
                             <div>
                                 <p class="text-green-100 text-sm font-medium">Active Users (1h)</p>
-                                <h3 class="text-3xl font-bold text-white"><?php echo is_numeric($stats['active_users']) ? number_format($stats['active_users']) : $stats['active_users']; ?></h3>
-                                    <div class="stat-value">
-                                        <?php 
-                                        if (is_numeric($stats['active_users'])) {
-                                            echo number_format((float)$stats['active_users']);
-                                        } else {
-                                            echo htmlspecialchars($stats['active_users']);
-                                        }
-                                        ?>
-                                    </div>
-                                </div>
+                                <h3 class="text-3xl font-bold text-white">
+                                    <?php 
+                                    if (is_numeric($stats['active_users'])) {
+                                        echo number_format((float)$stats['active_users']);
+                                    } else {
+                                        echo htmlspecialchars($stats['active_users']);
+                                    }
+                                    ?>
+                                </h3>
                             </div>
+                            <div class="bg-green-400 bg-opacity-20 p-3 rounded-full">
+                                <i class="fas fa-user-clock text-white text-xl"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <span class="text-green-100 text-sm"><i class="fas fa-bolt mr-1"></i> Currently active</span>
+                        </div>
+                    </div>
+
+                    <!-- Total Courses Card -->
+                    <div class="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-6 shadow-lg transform transition-all hover:scale-105 hover:shadow-xl">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-purple-100 text-sm font-medium">Total Courses</p>
+                                <h3 class="text-3xl font-bold text-white">
+                                    <?php 
+                                    if (is_numeric($stats['total_courses'])) {
+                                        echo number_format((float)$stats['total_courses']);
+                                    } else {
+                                        echo htmlspecialchars($stats['total_courses']);
+                                    }
+                                    ?>
+                                </h3>
+                            </div>
+                            <div class="bg-purple-400 bg-opacity-20 p-3 rounded-full">
+                                <i class="fas fa-book text-white text-xl"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <span class="text-purple-100 text-sm"><i class="fas fa-chart-line mr-1"></i> 5 new this week</span>
+                        </div>
+                    </div>
+
+                    <!-- Categories Card -->
+                    <div class="bg-gradient-to-r from-amber-500 to-amber-600 rounded-xl p-6 shadow-lg transform transition-all hover:scale-105 hover:shadow-xl">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-amber-100 text-sm font-medium">Categories</p>
+                                <h3 class="text-3xl font-bold text-white">
+                                    <?php 
+                                    if (is_numeric($stats['total_categories'])) {
+                                        echo number_format((float)$stats['total_categories']);
+                                    } else {
+                                        echo htmlspecialchars($stats['total_categories']);
+                                    }
+                                    ?>
+                                </h3>
+                            </div>
+                            <div class="bg-amber-400 bg-opacity-20 p-3 rounded-full">
+                                <i class="fas fa-tags text-white text-xl"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <span class="text-amber-100 text-sm"><i class="fas fa-layer-group mr-1"></i> Organized content</span>
                         </div>
                     </div>
                 </div>
