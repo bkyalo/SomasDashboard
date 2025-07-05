@@ -279,19 +279,42 @@ function get_top_enrolled_courses($limit = 5) {
                     error_log("Found $enrolled_count enrolled users for course " . $course['id']);
                 }
                 
-                // Get category information
-                $category_id = $course['category'] ?? 0;
+                // Get category information with multiple fallbacks
+                $category_id = $course['categoryid'] ?? $course['category'] ?? 0;
                 $category_name = 'Uncategorized';
                 
-                // Try to get category from the fetched categories
-                if ($category_id > 0 && !empty($categories[$category_id])) {
-                    $category_name = $categories[$category_id]['name'];
-                } 
-                // If not found, try to get it from the course data directly
-                // If not found, try to get it from the course data
-                else if (isset($course['categoryname'])) {
+                // Debug log the category resolution
+                error_log("Processing category for course ID: " . $course['id']);
+                error_log("Category ID: " . $category_id);
+                error_log("Available category fields in course: " . print_r(array_filter(array_keys($course), function($k) { 
+                    return strpos($k, 'categor') !== false; 
+                }), true));
+                
+                // Try to get category from the pre-fetched categories
+                if ($category_id > 0) {
+                    if (!empty($categories[$category_id])) {
+                        $category_name = is_array($categories[$category_id]) 
+                            ? ($categories[$category_id]['name'] ?? 'Uncategorized')
+                            : $categories[$category_id];
+                        error_log("Found category in pre-fetched categories: " . $category_name);
+                    } else {
+                        error_log("Category ID {$category_id} not found in pre-fetched categories");
+                    }
+                }
+                
+                // Fallback to course's categoryname if still uncategorized
+                if (($category_name === 'Uncategorized' || empty($category_name)) && !empty($course['categoryname'])) {
                     $category_name = $course['categoryname'];
-                    $category_id = $course['category'] ?? $category_id;
+                    error_log("Using categoryname from course data: " . $category_name);
+                }
+                
+                // Final fallback to course's displayname format
+                if (($category_name === 'Uncategorized' || empty($category_name)) && !empty($course['displayname'])) {
+                    $parts = explode(':', $course['displayname'], 2);
+                    if (count($parts) > 1) {
+                        $category_name = trim($parts[0]);
+                        error_log("Extracted category from displayname: " . $category_name);
+                    }
                 }
                 
                 $result[] = [
@@ -578,45 +601,55 @@ function get_all_courses_with_enrollments() {
                 }
             }
             
-            // Handle category information with multiple fallbacks
-            $categoryId = $course['category'] ?? 0;
+            // Get category ID - check both 'categoryid' and 'category' fields
+            $categoryId = $course['categoryid'] ?? $course['category'] ?? 0;
             $categoryName = 'Uncategorized';
             
+            // Debug log the course data
+            error_log("Processing course ID: {$course['id']}, Category ID: {$categoryId}");
+            
             // Try to get category from the fetched categories
-            if ($categoryId > 0 && !empty($categories[$categoryId])) {
-                if (is_array($categories[$categoryId])) {
-                    $categoryName = $categories[$categoryId]['name'] ?? 'Uncategorized';
+            if ($categoryId > 0) {
+                if (!empty($categories[$categoryId])) {
+                    if (is_array($categories[$categoryId])) {
+                        $categoryName = $categories[$categoryId]['name'] ?? 'Uncategorized';
+                    } else {
+                        $categoryName = $categories[$categoryId];
+                    }
+                    error_log("Found category name: {$categoryName} for ID: {$categoryId}");
                 } else {
-                    $categoryName = $categories[$categoryId];
+                    error_log("Category ID {$categoryId} not found in categories list");
+                    
+                    // Try to get the category directly from Moodle
+                    try {
+                        $category_info = call_moodle_api('core_course_get_categories', [
+                            'criteria' => [
+                                ['key' => 'ids', 'value' => $categoryId]
+                            ]
+                        ]);
+                        
+                        if (!empty($category_info[0]['name'])) {
+                            $categoryName = $category_info[0]['name'];
+                            error_log("Fetched category name directly: {$categoryName}");
+                        }
+                    } catch (Exception $e) {
+                        error_log("Error fetching category info for ID {$categoryId}: " . $e->getMessage());
+                    }
                 }
-            } 
-            // Fallback to course's categoryname if available
-            else if (!empty($course['categoryname'])) {
-                $categoryName = $course['categoryname'];
             }
-            // Fallback to course's displayname format (some Moodle versions use 'Category: Course Name')
-            else if (!empty($course['displayname'])) {
+            
+            // Fallback to course's categoryname if still uncategorized
+            if (($categoryName === 'Uncategorized' || empty($categoryName)) && !empty($course['categoryname'])) {
+                $categoryName = $course['categoryname'];
+                error_log("Using categoryname from course data: {$categoryName}");
+            }
+            
+            // Final fallback to course's displayname format
+            if (($categoryName === 'Uncategorized' || empty($categoryName)) && !empty($course['displayname'])) {
                 $parts = explode(':', $course['displayname'], 2);
                 if (count($parts) > 1) {
                     $categoryName = trim($parts[0]);
-                }
-            }
-            
-            // If still uncategorized, try to get parent category if available
-            if ($categoryName === 'Uncategorized' && $categoryId > 0 && !empty($course['category'])) {
-                // Try to get parent category info
-                try {
-                    $category_info = call_moodle_api('core_course_get_categories', [
-                        'criteria' => [
-                            ['key' => 'ids', 'value' => $categoryId]
-                        ]
-                    ]);
-                    
-                    if (!empty($category_info[0]['name'])) {
-                        $categoryName = $category_info[0]['name'];
-                    }
-                } catch (Exception $e) {
-                    error_log("Error fetching category info for ID {$categoryId}: " . $e->getMessage());
+                    error_log("Extracted category from displayname: {$categoryName}");
                 }
             }
             

@@ -18,24 +18,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 try {
     // Get query parameters
     $search = isset($_GET['search']) ? trim($_GET['search']) : '';
+    $categoryId = isset($_GET['category']) ? (int)$_GET['category'] : 0;
     $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
     $perPage = isset($_GET['per_page']) ? (int)$_GET['per_page'] : 10;
     
     // Get all courses with enrollment data
     $allCourses = get_all_courses_with_enrollments();
     
-    // Apply search filter
-    if (!empty($search)) {
-        $search = strtolower($search);
-        $allCourses = array_filter($allCourses, function($course) use ($search) {
-            return (strpos(strtolower($course['fullname']), $search) !== false) ||
-                   (strpos(strtolower($course['shortname']), $search) !== false) ||
-                   (strpos(strtolower($course['categoryname']), $search) !== false) ||
-                   ($course['teacher'] && strpos(strtolower($course['teacher']), $search) !== false);
-        });
-        // Re-index array after filtering
-        $allCourses = array_values($allCourses);
-    }
+    // Debug log the filter parameters
+    error_log('Filtering courses - Search: ' . $search . ', Category ID: ' . $categoryId);
+    
+    // Apply filters
+    $allCourses = array_filter($allCourses, function($course) use ($search, $categoryId) {
+        $matches = true;
+        
+        // Apply search filter
+        if (!empty($search)) {
+            $search = strtolower($search);
+            $matches = $matches && (
+                (isset($course['fullname']) && strpos(strtolower($course['fullname']), $search) !== false) ||
+                (isset($course['shortname']) && strpos(strtolower($course['shortname']), $search) !== false) ||
+                (isset($course['categoryname']) && strpos(strtolower($course['categoryname']), $search) !== false) ||
+                (isset($course['teacher']) && $course['teacher'] && strpos(strtolower($course['teacher']), $search) !== false)
+            );
+        }
+        
+        // Apply category filter
+        if ($categoryId > 0) {
+            // Get the course's category ID, handling both 'categoryid' and 'category' fields
+            $courseCategoryId = $course['categoryid'] ?? $course['category'] ?? null;
+            
+            // Debug log the course's category information
+            error_log('Checking course: ' . ($course['fullname'] ?? 'unknown') . ' - Category ID: ' . ($courseCategoryId ?? 'undefined'));
+            
+            // Check if the course belongs to the selected category
+            // Convert both to integers for comparison to ensure type safety
+            $categoryMatch = ($courseCategoryId !== null && (int)$courseCategoryId === (int)$categoryId);
+            
+            error_log('Category match for course ' . ($course['id'] ?? 'unknown') . ': ' . ($categoryMatch ? 'YES' : 'NO'));
+            
+            $matches = $matches && $categoryMatch;
+        }
+        
+        return $matches;
+    });
+    
+    error_log('Filtered courses count: ' . count($allCourses));
+    
+    // Re-index array after filtering
+    $allCourses = array_values($allCourses);
     
     // Calculate pagination
     $totalCourses = count($allCourses);

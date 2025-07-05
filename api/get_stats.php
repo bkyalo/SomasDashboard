@@ -33,6 +33,30 @@ try {
         throw new Exception("Failed to retrieve site statistics: " . $stats['error']);
     }
     
+    // Get total number of teachers
+    error_log("Fetching teacher count...");
+    try {
+        $teachers = call_moodle_api('core_enrol_get_enrolled_users', [
+            'courseid' => 1, // Site course
+            'options' => [
+                'limit' => 0,
+                'userfields' => 'id',
+                'roleid' => 3 // Teacher role ID (adjust if different in your Moodle)
+            ]
+        ]);
+        
+        if (is_array($teachers)) {
+            $stats['total_teachers'] = count($teachers);
+            error_log("Found " . $stats['total_teachers'] . " teachers");
+        } else {
+            $stats['total_teachers'] = 0;
+            error_log("Could not determine number of teachers, using 0");
+        }
+    } catch (Exception $e) {
+        $stats['total_teachers'] = 0;
+        error_log("Error getting teacher count: " . $e->getMessage());
+    }
+    
     error_log("Site statistics retrieved: " . print_r($stats, true));
     
     // Get top enrolled courses

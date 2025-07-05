@@ -53,10 +53,21 @@ require_once 'api_functions.php';
                 <div class="flex justify-between items-center mb-6">
                     <h1 class="text-2xl font-bold text-gray-800">All Courses</h1>
                     <div class="flex items-center space-x-4">
-                        <div class="relative">
-                            <input type="text" id="searchInput" placeholder="Search courses..." 
-                                class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm w-64">
-                            <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                        <div class="flex space-x-2">
+                            <div class="relative">
+                                <input type="text" id="searchInput" placeholder="Search courses..." 
+                                    class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm w-64">
+                                <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                            </div>
+                            <div class="relative">
+                                <select id="categoryFilter" class="pl-3 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm w-48 appearance-none bg-white">
+                                    <option value="">All Categories</option>
+                                    <!-- Categories will be populated by JavaScript -->
+                                </select>
+                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                                    <i class="fas fa-chevron-down text-xs"></i>
+                                </div>
+                            </div>
                         </div>
                         <select id="rowsPerPage" class="text-sm border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
                             <option value="10">10 per page</option>
@@ -166,6 +177,375 @@ require_once 'api_functions.php';
 
     <!-- Include JavaScript -->
     <script src="js/courses.js"></script>
+    <script>
+        // Global variables
+        let allCategories = [];
+        
+        // Function to fetch categories from the API
+        async function fetchCategories() {
+            console.log('Starting to fetch categories...');
+            
+            try {
+                const response = await fetch('api/get_categories.php');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('Received categories response:', data);
+                
+                if (data.success && Array.isArray(data.data)) {
+                    console.log(`Successfully loaded ${data.data.length} categories`);
+                    allCategories = data.data;
+                    
+                    // Log first few categories for verification
+                    if (allCategories.length > 0) {
+                        console.log('Sample categories:', allCategories.slice(0, 3));
+                    }
+                    
+                    populateCategoryFilter();
+                    
+                    // Trigger initial course load after categories are loaded
+                    console.log('Fetching initial courses after loading categories...');
+                    fetchCourses();
+                } else {
+                    const errorMsg = data.message || 'No data returned from categories API';
+                    console.error('Failed to load categories:', errorMsg, data);
+                    
+                    // Show error to user
+                    showNotification('warning', 'Could not load course categories. Showing all courses.');
+                    
+                    // Still try to load courses even if categories fail
+                    fetchCourses();
+                }
+            } catch (error) {
+                console.error('Error fetching categories:', error);
+                
+                // Show error to user
+                showNotification('error', 'Error loading course categories. Showing all courses.');
+                
+                // Still try to load courses even if categories fail
+                fetchCourses();
+            }
+        }
+        
+        // Helper function to show notifications
+        function showNotification(type, message) {
+            // Check if notification container exists, if not create it
+            let container = document.getElementById('notification-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'notification-container';
+                container.className = 'fixed top-4 right-4 z-50 space-y-2 w-80';
+                document.body.appendChild(container);
+            }
+            
+            const notification = document.createElement('div');
+            const bgColor = type === 'error' ? 'bg-red-100 border-red-500 text-red-700' : 
+                           type === 'success' ? 'bg-green-100 border-green-500 text-green-700' :
+                           'bg-yellow-100 border-yellow-500 text-yellow-700';
+            
+            notification.className = `border-l-4 p-4 ${bgColor} rounded shadow-lg`;
+            notification.role = 'alert';
+            notification.innerHTML = `
+                <p class="font-bold">${type === 'error' ? 'Error' : type === 'success' ? 'Success' : 'Notice'}</p>
+                <p>${message}</p>
+            `;
+            
+            container.appendChild(notification);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.style.transition = 'opacity 0.5s';
+                setTimeout(() => notification.remove(), 500);
+            }, 5000);
+        }
+        
+        // Function to populate the category filter dropdown
+        function populateCategoryFilter() {
+            const categoryFilter = document.getElementById('categoryFilter');
+            if (!categoryFilter) {
+                console.error('Category filter element not found in the DOM');
+                return;
+            }
+            
+            try {
+                console.log('Populating category filter with categories:', allCategories);
+                
+                // Store current selected value
+                const currentValue = categoryFilter.value;
+                
+                // Clear existing options except the first one
+                while (categoryFilter.options.length > 1) {
+                    categoryFilter.remove(1);
+                }
+                
+                // Sort categories by name for better UX
+                const sortedCategories = [...allCategories].sort((a, b) => {
+                    return (a.name || '').localeCompare(b.name || '');
+                });
+                
+                // Add categories to the dropdown
+                sortedCategories.forEach(category => {
+                    try {
+                        // Ensure category has required fields
+                        const categoryId = String(category.id ?? '');
+                        const categoryName = String(category.name || 'Unnamed Category');
+                        
+                        if (categoryId && categoryName) {
+                            const option = document.createElement('option');
+                            option.value = categoryId;
+                            option.textContent = categoryName;
+                            categoryFilter.appendChild(option);
+                            
+                            // Log the added category for debugging
+                            console.log('Added category:', { id: categoryId, name: categoryName });
+                        } else {
+                            console.warn('Skipping invalid category:', category);
+                        }
+                    } catch (err) {
+                        console.error('Error processing category:', category, err);
+                    }
+                });
+                
+                // Restore selected value if it still exists
+                if (currentValue) {
+                    const optionExists = Array.from(categoryFilter.options).some(
+                        opt => String(opt.value) === String(currentValue)
+                    );
+                    
+                    if (optionExists) {
+                        categoryFilter.value = currentValue;
+                        console.log('Restored selected category:', currentValue);
+                    } else {
+                        console.log('Previous category selection not found in new options');
+                    }
+                }
+                
+                console.log('Category filter populated with', categoryFilter.options.length - 1, 'categories');
+                
+            } catch (error) {
+                console.error('Error populating category filter:', error);
+                // Show error in the UI if possible
+                const errorElement = document.createElement('div');
+                errorElement.className = 'text-red-500 text-sm mt-2';
+                errorElement.textContent = 'Error loading categories';
+                categoryFilter.parentNode.appendChild(errorElement);
+            }
+        }
+        
+        // Function to update stats from the API
+        async function updateStats() {
+            try {
+                const response = await fetch('api/get_stats.php');
+                const data = await response.json();
+                
+                if (data.success && data.data) {
+                    // Update the stats cards
+                    if (data.data.total_courses !== undefined) {
+                        document.getElementById('totalCourses').textContent = data.data.total_courses;
+                    }
+                    if (data.data.active_users !== undefined) {
+                        document.getElementById('totalStudents').textContent = data.data.active_users;
+                    }
+                    if (data.data.total_teachers !== undefined) {
+                        document.getElementById('totalTeachers').textContent = data.data.total_teachers;
+                    } else if (data.data.total_users !== undefined) {
+                        // Fallback: Estimate teachers as 10% of total users if not provided
+                        const estimatedTeachers = Math.max(1, Math.floor(data.data.total_users * 0.1));
+                        document.getElementById('totalTeachers').textContent = estimatedTeachers;
+                    }
+                    if (data.data.total_categories !== undefined) {
+                        document.getElementById('totalCategories').textContent = data.data.total_categories;
+                    }
+                }
+            } catch (error) {
+                console.error('Error updating stats:', error);
+            }
+        }
+
+        // Function to update the courses table with optional filtering
+        function updateCoursesTable(courses) {
+            const tbody = document.querySelector('#coursesTable tbody');
+            if (!tbody) return;
+            
+            if (!courses || courses.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="text-center py-8 text-gray-500">
+                            No courses found matching your criteria
+                        </td>
+                    </tr>`;
+                return;
+            }
+            
+            tbody.innerHTML = courses.map(course => `
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-book text-blue-600"></i>
+                            </div>
+                            <div class="ml-4">
+                                <div class="text-sm font-medium text-gray-900">${escapeHtml(course.fullname)}</div>
+                                <div class="text-xs text-gray-500">${escapeHtml(course.categoryname || 'Uncategorized')}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        ${escapeHtml(course.shortname)}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        ${course.teacher ? escapeHtml(course.teacher) : 'No teacher assigned'}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2.5 py-0.5 inline-flex text-xs font-medium rounded-full ${getEnrollmentBadgeClass(course.enrolledusercount)}">
+                            ${course.enrolledusercount} enrolled
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <a href="${MOODLE_URL}/course/view.php?id=${course.id}" target="_blank" class="text-blue-600 hover:text-blue-900">
+                            View <i class="fas fa-external-link-alt ml-1 text-xs"></i>
+                        </a>
+                    </td>
+                </tr>`).join('');
+        }
+        
+        // Function to fetch courses with filters
+        async function fetchCourses() {
+            try {
+                const searchQuery = document.getElementById('searchInput').value;
+                const categoryFilter = document.getElementById('categoryFilter');
+                const categoryValue = categoryFilter ? categoryFilter.value : '';
+                const rowsPerPage = document.getElementById('rowsPerPage').value;
+                
+                // Debug log
+                console.log('Fetching courses with params:', {
+                    search: searchQuery,
+                    category: categoryValue,
+                    page: currentPage,
+                    per_page: rowsPerPage
+                });
+                
+                // Show loading state
+                const tbody = document.querySelector('#coursesTable tbody');
+                if (tbody) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="5" class="text-center py-8">
+                                <div class="flex justify-center">
+                                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                                </div>
+                                <p class="mt-2 text-gray-600">Loading courses...</p>
+                            </td>
+                        </tr>`;
+                }
+                
+                // Build query parameters
+                const params = new URLSearchParams({
+                    page: currentPage,
+                    per_page: rowsPerPage,
+                    search: searchQuery
+                });
+                
+                if (categoryValue) {
+                    params.append('category', categoryValue);
+                    console.log('Added category filter:', categoryValue);
+                }
+                
+                const response = await fetch(`api/get_courses.php?${params.toString()}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    allCourses = data.data || [];
+                    updateCoursesTable(allCourses);
+                    
+                    // Update pagination
+                    if (data.pagination) {
+                        renderPagination(data.pagination);
+                    }
+                } else {
+                    throw new Error(data.error || 'Failed to fetch courses');
+                }
+            } catch (error) {
+                console.error('Error fetching courses:', error);
+                const tbody = document.querySelector('#coursesTable tbody');
+                if (tbody) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="5" class="text-center py-8 text-red-500">
+                                Error loading courses. Please try again.
+                            </td>
+                        </tr>`;
+                }
+            }
+        }
+        
+        // Function to handle category filter change
+        function handleCategoryChange(e) {
+            console.log('Category filter changed:', {
+                value: e.target.value,
+                selectedIndex: e.target.selectedIndex,
+                options: Array.from(e.target.options).map(opt => ({
+                    value: opt.value,
+                    text: opt.text,
+                    selected: opt.selected
+                }))
+            });
+            currentPage = 1; // Reset to first page when changing categories
+            fetchCourses();
+        }
+
+        // Initialize stats when the page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            updateStats();
+            fetchCategories();
+            
+            // Set up event listeners
+            const searchInput = document.getElementById('searchInput');
+            const categoryFilter = document.getElementById('categoryFilter');
+            const rowsPerPage = document.getElementById('rowsPerPage');
+            const refreshButton = document.getElementById('refreshButton');
+            
+            // Search input with debounce
+            if (searchInput) {
+                searchInput.addEventListener('input', debounce(fetchCourses, 300));
+            }
+            
+            // Category filter
+            if (categoryFilter) {
+                console.log('Category filter element found, adding event listener');
+                categoryFilter.addEventListener('change', handleCategoryChange);
+            } else {
+                console.error('Category filter element not found!');
+            }
+            
+            // Rows per page
+            if (rowsPerPage) {
+                rowsPerPage.addEventListener('change', function() {
+                    currentPage = 1;
+                    fetchCourses();
+                });
+            }
+            
+            // Refresh button
+            if (refreshButton) {
+                refreshButton.addEventListener('click', function() {
+                    currentPage = 1;
+                    if (searchInput) searchInput.value = '';
+                    if (categoryFilter) categoryFilter.value = '';
+                    fetchCourses();
+                });
+            }
+            
+            // Update stats every 5 minutes
+            setInterval(updateStats, 5 * 60 * 1000);
+            
+            console.log('Event listeners initialized');
+        });
+    </script>
     <script>
         // Make the changePage function available globally for pagination
         // The actual implementation is in courses.js

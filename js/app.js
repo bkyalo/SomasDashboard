@@ -461,13 +461,36 @@ function updateTopCourses(courses) {
     if (courses && courses.length > 0) {
         console.log('All course objects:');
         courses.forEach((course, index) => {
+            // Safely extract category information with multiple fallbacks
+            const categoryId = course.categoryid || course.category || 0;
+            let categoryName = course.categoryname || 'Uncategorized';
+            
+            // If categoryname is not available but we have a category ID, try to get the name
+            if ((!categoryName || categoryName === 'Uncategorized') && categoryId > 0) {
+                // Try to find the category in the course object
+                const categoryField = Object.keys(course).find(key => 
+                    key.toLowerCase().includes('category') && 
+                    typeof course[key] === 'string' && 
+                    course[key] !== 'Uncategorized' &&
+                    course[key] !== ''
+                );
+                
+                if (categoryField) {
+                    categoryName = course[categoryField];
+                }
+            }
+            
             console.log(`Course #${index + 1}:`, {
                 id: course.id,
                 fullname: course.fullname,
-                categoryId: course.categoryid || course.category,
-                categoryName: course.categoryname,
+                categoryId: categoryId,
+                categoryName: categoryName,
                 allProperties: Object.keys(course)
             });
+            
+            // Add the resolved category information to the course object
+            course.categoryId = categoryId;
+            course.categoryName = categoryName;
         });
     }
     
@@ -553,7 +576,7 @@ function updateTopCourses(courses) {
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
                 <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                    ${course.category ? escapeHtml(course.category.name || course.category) : 'Uncategorized'}
+                    ${escapeHtml(course.categoryName || 'Uncategorized')}
                 </span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
